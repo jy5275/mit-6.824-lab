@@ -40,11 +40,11 @@ func doMapTask(mapf func(string, string) []KeyValue, taskResp *GetTaskResp) {
 	// Open original files
 	filePtr, err := os.Open(taskResp.Filename)
 	if err != nil {
-		log.Fatalf("cannot open %v", taskResp.Filename)
+		log.Fatalf("Map cannot open taskId=%v, filename=%v", taskResp.Id, taskResp.Filename)
 	}
 	content, err := ioutil.ReadAll(filePtr)
 	if err != nil {
-		log.Fatalf("cannot read %v", taskResp.Filename)
+		log.Fatalf("Map cannot read %v", taskResp.Filename)
 	}
 	filePtr.Close()
 
@@ -54,13 +54,15 @@ func doMapTask(mapf func(string, string) []KeyValue, taskResp *GetTaskResp) {
 	kvaPartitions := make([][]KeyValue, taskResp.NReduce)
 	intermediatePtrs := []*os.File{}
 	encoders := []*json.Encoder{}
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("map Getwd error, %v", err)
+	}
 
 	// Create files and encoders (nReduce)
 	for i := 0; i < taskResp.NReduce; i++ {
-		// intFilename := "mr-" + strconv.Itoa(taskResp.Id) + "-" + strconv.Itoa(i)
-		// pwd, err := os.Getwd()
-		// tempPtr, err := ioutil.TempFile(pwd, intFilename)
-		tempPtr, err := os.Create("mr-" + strconv.Itoa(taskResp.Id) + "-" + strconv.Itoa(i))
+		intFilename := "mr-" + strconv.Itoa(taskResp.Id) + "-" + strconv.Itoa(i)
+		tempPtr, err := ioutil.TempFile(pwd, intFilename)
 		if err != nil {
 			log.Fatalf("create intermediate file error: err=%v", err)
 		}
@@ -77,14 +79,20 @@ func doMapTask(mapf func(string, string) []KeyValue, taskResp *GetTaskResp) {
 
 	// Write kvs into intermediate files and then close them
 	for pid := 0; pid < taskResp.NReduce; pid++ {
-		// sort.Sort(ByKey(kvaPartitions[pid]))
 		err := encoders[pid].Encode(kvaPartitions[pid])
 		if err != nil {
-			log.Fatalf("Worker encode error: kv_pid=%v, err=%v", pid, err)
+			log.Fatalf("Map encode error: kv_pid=%v, err=%v", pid, err)
 		}
+		intFilename := "mr-" + strconv.Itoa(taskResp.Id) + "-" + strconv.Itoa(pid)
 		err = intermediatePtrs[pid].Close()
 		if err != nil {
-			log.Fatalf("Worker close file error: err=%v", err)
+			log.Fatalf("Map close file error: err=%v", err)
+		}
+
+		err = os.Rename(intermediatePtrs[pid].Name(), pwd+"/"+intFilename)
+		if err != nil {
+			log.Fatalf("Map rename file error: old filename=%v, new filename=%v err=%v",
+				intermediatePtrs[pid].Name(), pwd+"/"+intFilename, err)
 		}
 	}
 }
@@ -116,9 +124,14 @@ func doReduceTask(reducef func(string, []string) string, taskResp *GetTaskResp) 
 	sort.Sort(ByKey(kvsForR))
 
 	outFilename := "mr-out-" + strconv.Itoa(taskResp.Id)
-	outFile, err := os.Create(outFilename)
+	pwd, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Worker create final file error, filename=%v, err=%v", outFilename, err)
+		log.Fatalf("reduce Getwd error, %v", err)
+	}
+	outFile, err := ioutil.TempFile(pwd, outFilename)
+	// outFile, err := os.Create(outFilename)
+	if err != nil {
+		log.Fatalf("Reduce create out file error, filename=%v, err=%v", outFilename, err)
 	}
 
 	// Call reducef once for each distinct Key
@@ -137,7 +150,13 @@ func doReduceTask(reducef func(string, []string) string, taskResp *GetTaskResp) 
 	}
 	err = outFile.Close()
 	if err != nil {
-		log.Fatalf("Worker close output file error, filename=%v, err=%v", outFilename, err)
+		log.Fatalf("Reduce close output file error, filename=%v, err=%v", outFilename, err)
+	}
+
+	err = os.Rename(outFile.Name(), pwd+"/"+outFilename)
+	if err != nil {
+		log.Fatalf("Reduce rename out file error: old filename=%v, new filename=%v err=%v",
+			outFile.Name(), pwd+"/"+outFilename, err)
 	}
 }
 
@@ -161,7 +180,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-	fmt.Println("====== mr/worker.go:Worker begin to work =======")
+	// fmt.Println("====== mr/worker.go:Worker begin to work =======")
 
 	for {
 		taskResp := GetTaskFromMaster()
@@ -172,13 +191,12 @@ func Worker(mapf func(string, string) []KeyValue,
 		} else if taskResp.TaskType == ReduceTask {
 			doReduceTask(reducef, taskResp)
 			SendFinishMsg(ReduceTask, taskResp.Id)
-		} else if taskResp.TaskType == AllDone {
-			break
 		} else {
+			break
 		}
 	}
 
-	fmt.Println("====== mr/worker.go:Worker exit =======")
+	// fmt.Println("====== mr/worker.go:Worker exit =======")
 }
 
 //

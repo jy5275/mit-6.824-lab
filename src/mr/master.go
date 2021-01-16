@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	MapTask = iota
+	DEFAULTNUM = iota
+	MapTask
 	Reserve1
 	Reserve2
 	ReduceTask
@@ -84,14 +85,14 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 				resp.NMap = m.nMap
 				resp.NReduce = m.nReduce
 				resp.TaskType = MapTask
-				log.Println("Master send map task: " + m.mapTasks[i].String())
+				// log.Printf("Master send map task %v\n", i)
 
 				// The task, if hasn't finished in timeout seconds,
 				//  should be regarded as worker process failure.
 				go func(mid int) {
 					time.Sleep(time.Duration(m.timeout) * time.Second)
 					if atomic.CompareAndSwapInt32(&(m.mapTasks[mid].Status), Processing, Pending) {
-						log.Printf("Map task %v timeout\n", mid)
+						// log.Printf("Map task %v timeout\n", mid)
 					}
 				}(i)
 
@@ -99,7 +100,7 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 			}
 		}
 		// When reach here, map tasks are all assigned, but some are not finished yet
-		log.Println("map all assigned")
+		// log.Println("map all assigned")
 		time.Sleep(time.Duration(3) * time.Second)
 	}
 
@@ -115,7 +116,7 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 				resp.NMap = m.nMap
 				resp.NReduce = m.nReduce
 				resp.TaskType = ReduceTask
-				log.Printf("Master send reduce task %v", i)
+				// log.Printf("Master send reduce task %v", i)
 
 				go func(rid int) {
 					time.Sleep(time.Duration(m.timeout) * time.Second)
@@ -132,7 +133,7 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 	}
 
 	log.Println("reduce all finished")
-	resp.TaskType = AllDone
+	resp.TaskType = AllDone // Only the last worker will be noticed to exit
 	return nil
 }
 
@@ -199,7 +200,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 	// Your code here.
 	// Create map tasks of num nMap (= file num)
 	for _, f := range files {
-		log.Println("file: " + f)
+		// log.Println("file: " + f)
 		task := &MRTask{
 			Id:       m.nMap,
 			Filename: f,
@@ -210,6 +211,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 		m.mapTasks = append(m.mapTasks, task)
 		m.nMap++
 	}
+	log.Println(m.mapTasks)
 
 	// Create reduce tasks (=nReduce)
 	for i := 0; i < m.nReduce; i++ {
