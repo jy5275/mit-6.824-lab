@@ -21,9 +21,9 @@ const (
 )
 
 const (
-	Pending = iota
-	Processing
-	Finished
+	Idle = iota
+	InProgress
+	Completed
 )
 
 type MRTask struct {
@@ -39,12 +39,12 @@ func (t *MRTask) String() string {
 
 type Master struct {
 	// Your definitions here.
-	mapTasks        []*MRTask
-	reduceTasks     []*MRTask
-	mapFinishNum    int32
-	reduceFinishNum int32
-	nReduce         int
-	nMap            int
+	mapTasks          []*MRTask
+	reduceTasks       []*MRTask
+	mapCompleteNum    int32
+	reduceCompleteNum int32
+	nReduce           int
+	nMap              int
 
 	timeout int
 }
@@ -69,17 +69,17 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 		log.Fatal("GetTask resp is nil")
 	}
 
-	// Map tasks not all finished (may be all assigned)
+	// Map tasks not all completed (may be all assigned)
 	// In a new round, possible cases are:
-	//  1. Remaining pening map tasks are all finished, break the loop
-	//  2. Not finished, still waiting...
-	//  3. A map task failed and returned Pending state, pick it
+	//  1. Remaining pening map tasks are all completed, break the loop
+	//  2. Not completed, still waiting...
+	//  3. A map task failed and returned Idle state, pick it
 	//  4. 3 was picked by other worker, still waiting...
 	//
 	// Synchronize PRC, worker might keep waiting for several tens of seconds
-	for atomic.LoadInt32(&m.mapFinishNum) < int32(m.nMap) {
+	for atomic.LoadInt32(&m.mapCompleteNum) < int32(m.nMap) {
 		for i := 0; i < m.nMap; i++ {
-			if atomic.CompareAndSwapInt32(&(m.mapTasks[i].Status), Pending, Processing) {
+			if atomic.CompareAndSwapInt32(&(m.mapTasks[i].Status), Idle, InProgress) {
 				resp.Filename = m.mapTasks[i].Filename
 				resp.Id = i
 				resp.NMap = m.nMap
@@ -87,11 +87,11 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 				resp.TaskType = MapTask
 				// log.Printf("Master send map task %v\n", i)
 
-				// The task, if hasn't finished in timeout seconds,
+				// The task, if hasn't completed in timeout seconds,
 				//  should be regarded as worker process failure.
 				go func(mid int) {
 					time.Sleep(time.Duration(m.timeout) * time.Second)
-					if atomic.CompareAndSwapInt32(&(m.mapTasks[mid].Status), Processing, Pending) {
+					if atomic.CompareAndSwapInt32(&(m.mapTasks[mid].Status), InProgress, Idle) {
 						// log.Printf("Map task %v timeout\n", mid)
 					}
 				}(i)
@@ -99,19 +99,19 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 				return nil
 			}
 		}
-		// When reach here, map tasks are all assigned, but some are not finished yet
+		// When reach here, map tasks are all assigned, but some are not completed yet
 		// log.Println("map all assigned")
 		time.Sleep(time.Duration(3) * time.Second)
 	}
 
-	if atomic.LoadInt32(&m.mapFinishNum) != int32(m.nMap) {
-		log.Fatalf("Core error, mapFinishNum=%v", m.mapFinishNum)
+	if atomic.LoadInt32(&m.mapCompleteNum) != int32(m.nMap) {
+		log.Fatalf("Core error, mapCompleteNum=%v", m.mapCompleteNum)
 	}
 
 	// Assign a reduce task
-	for atomic.LoadInt32(&m.reduceFinishNum) < int32(m.nReduce) {
+	for atomic.LoadInt32(&m.reduceCompleteNum) < int32(m.nReduce) {
 		for i := 0; i < m.nReduce; i++ {
-			if atomic.CompareAndSwapInt32(&(m.reduceTasks[i].Status), Pending, Processing) {
+			if atomic.CompareAndSwapInt32(&(m.reduceTasks[i].Status), Idle, InProgress) {
 				resp.Id = i
 				resp.NMap = m.nMap
 				resp.NReduce = m.nReduce
@@ -120,7 +120,7 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 
 				go func(rid int) {
 					time.Sleep(time.Duration(m.timeout) * time.Second)
-					if atomic.CompareAndSwapInt32(&(m.reduceTasks[rid].Status), Processing, Pending) {
+					if atomic.CompareAndSwapInt32(&(m.reduceTasks[rid].Status), InProgress, Idle) {
 						log.Printf("Reduce task %v timeout\n", rid)
 					}
 				}(i)
@@ -128,31 +128,31 @@ func (m *Master) GetTask(req *GetTaskReq, resp *GetTaskResp) error {
 				return nil
 			}
 		}
-		// When reach here, reduce tasks are all assigned, but some are not finished yet
+		// When reach here, reduce tasks are all assigned, but some are not completed yet
 		time.Sleep(time.Duration(3) * time.Second)
 	}
 
-	log.Println("reduce all finished")
+	log.Println("reduce all completed")
 	resp.TaskType = AllDone // Only the last worker will be noticed to exit
 	return nil
 }
 
-// Finish notice sent by worker
-func (m *Master) FinishNotice(req *FinishNoticeReq, resp *FinishNoticeResp) error {
+// Complete notice sent by worker
+func (m *Master) CompleteNotice(req *CompleteNoticeReq, resp *CompleteNoticeResp) error {
 	if req == nil {
-		log.Fatal("finish notice req is nil")
+		log.Fatal("Complete notice req is nil")
 	}
 
 	if req.TaskType == MapTask {
-		if atomic.CompareAndSwapInt32(&(m.mapTasks[req.Id].Status), Processing, Finished) {
-			atomic.AddInt32(&m.mapFinishNum, 1)
+		if atomic.CompareAndSwapInt32(&(m.mapTasks[req.Id].Status), InProgress, Completed) {
+			atomic.AddInt32(&m.mapCompleteNum, 1)
 		}
 	} else if req.TaskType == ReduceTask {
-		if atomic.CompareAndSwapInt32(&(m.reduceTasks[req.Id].Status), Processing, Finished) {
-			atomic.AddInt32(&m.reduceFinishNum, 1)
+		if atomic.CompareAndSwapInt32(&(m.reduceTasks[req.Id].Status), InProgress, Completed) {
+			atomic.AddInt32(&m.reduceCompleteNum, 1)
 		}
 	} else {
-		log.Printf("Duplicated finish set on task %v\n", req.Id)
+		log.Printf("Duplicated complete set on task %v\n", req.Id)
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (m *Master) server() {
 //
 func (m *Master) Done() bool {
 	// Your code here.
-	if atomic.LoadInt32(&m.reduceFinishNum) == int32(m.nReduce) {
+	if atomic.LoadInt32(&m.reduceCompleteNum) == int32(m.nReduce) {
 		return true
 	}
 	return false
@@ -204,7 +204,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 		task := &MRTask{
 			Id:       m.nMap,
 			Filename: f,
-			Status:   Pending,
+			Status:   Idle,
 			TaskType: MapTask,
 		}
 
@@ -217,7 +217,7 @@ func MakeMaster(files []string, nReduce int) *Master {
 	for i := 0; i < m.nReduce; i++ {
 		task := &MRTask{
 			Id:       i,
-			Status:   Pending,
+			Status:   Idle,
 			TaskType: ReduceTask,
 		}
 		m.reduceTasks = append(m.reduceTasks, task)

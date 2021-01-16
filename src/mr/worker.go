@@ -168,9 +168,9 @@ func GetTaskFromMaster() *GetTaskResp {
 	return &resp
 }
 
-func SendFinishMsg(taskType, id int) {
-	req := FinishNoticeReq{Id: id, TaskType: taskType}
-	call("Master.FinishNotice", &req, nil)
+func SendCompleteMsg(taskType, id int) {
+	req := CompleteNoticeReq{Id: id, TaskType: taskType}
+	call("Master.CompleteNotice", &req, nil)
 }
 
 //
@@ -187,10 +187,10 @@ func Worker(mapf func(string, string) []KeyValue,
 
 		if taskResp.TaskType == MapTask {
 			doMapTask(mapf, taskResp)
-			SendFinishMsg(MapTask, taskResp.Id)
+			SendCompleteMsg(MapTask, taskResp.Id)
 		} else if taskResp.TaskType == ReduceTask {
 			doReduceTask(reducef, taskResp)
-			SendFinishMsg(ReduceTask, taskResp.Id)
+			SendCompleteMsg(ReduceTask, taskResp.Id)
 		} else {
 			break
 		}

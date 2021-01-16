@@ -35,13 +35,13 @@ type GetTaskResp struct {
 	NMap     int
 }
 
-type FinishNoticeReq struct {
+type CompleteNoticeReq struct {
 	Id                   int
 	TaskType             int
 	IntermediateFilename []string
 }
 
-type FinishNoticeResp struct {
+type CompleteNoticeResp struct {
 }
 
 // Add your RPC definitions here.
