@@ -18,6 +18,7 @@ package raft
 //
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -36,9 +37,14 @@ const (
 )
 
 const (
-	LOWER_BOUND        = 500
-	UPPER_BOUND        = 1000
-	HEARTBEAT_INTERVAL = 300
+	OUTDATED_TERM     = 1
+	LOG_INCONSISTENCY = 2
+)
+
+const (
+	LOWER_BOUND        = 200
+	UPPER_BOUND        = 350
+	HEARTBEAT_INTERVAL = 120
 )
 
 //
@@ -72,13 +78,19 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	state         int
-	currentTerm   int
-	votedFor      int // to whom I vote in this term
-	forNum        int // supporting votes received in election
-	totNum        int // total votes received in election
-	commitIndex   int
-	lastApplied   int
+	currentTerm int
+	votedFor    int // to whom I vote in this term
+	log         []*LogEntry
+
+	state       int
+	forNum      int // supporting votes received in election
+	totNum      int // total votes received in election
+	commitIndex int
+	lastApplied int
+
+	nextIndex     []int
+	matchIndex    []int
+	repCnt        map[int]int
 	electionTimer *time.Timer
 }
 
@@ -136,7 +148,9 @@ func (rf *Raft) readPersist(data []byte) {
 }
 
 type LogEntry struct {
-	Content string
+	Index   int
+	Term    int
+	Content interface{}
 }
 
 //
@@ -161,48 +175,55 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
-// Invoke with lock!
-func (rf *Raft) Reduction(term, whom int) {
-	rf.state = FOLLOWER
-	rf.currentTerm = term
-	rf.forNum = 0
-	rf.totNum = 0
-	rf.votedFor = whom
-	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
-}
-
-//
 // example RequestVote RPC handler.
-//
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	if args.Term <= rf.currentTerm {
+	if args.Term < rf.currentTerm {
 		// Outdated election, ignore it
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
 		DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
 			rf.currentTerm, args.Term, args.CandidateId)
-	} else {
-		if rf.state == LEADER {
-			// Reduce yourself to a follower
-			rf.Reduction(args.Term, args.CandidateId)
-			reply.VoteGranted = true
-			reply.Term = rf.currentTerm
-		} else if rf.state == CANDIDATE {
-			// Reduce yourself to a follower
-			rf.Reduction(args.Term, args.CandidateId)
-			reply.VoteGranted = true
-			reply.Term = rf.currentTerm
-		} else if rf.state == FOLLOWER {
-			// Accept a new leader
-			rf.Reduction(args.Term, args.CandidateId)
-			reply.VoteGranted = true
-			reply.Term = rf.currentTerm
-		}
-		DPrintf("Ins %v recv reqVote from %v, granted\n", rf.me, args.CandidateId)
+		return
 	}
+
+	// Unconditional reduction
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
+		rf.state = FOLLOWER
+	}
+
+	// Has already voted for another server in this term
+	if rf.votedFor != -1 {
+		reply.VoteGranted = false
+		reply.Term = rf.currentTerm
+		DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
+			rf.currentTerm, args.Term, args.CandidateId)
+		return
+	}
+
+	// Up-to-date or not?
+	if len(rf.log) > 0 {
+		lastLog := rf.log[len(rf.log)-1]
+		if args.LastLogTerm < lastLog.Term ||
+			(args.LastLogTerm == lastLog.Term && args.LastLogIndex < len(rf.log)) {
+			// Not up-to-date
+			reply.VoteGranted = false
+			reply.Term = rf.currentTerm
+			DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
+				rf.currentTerm, args.Term, args.CandidateId)
+			return
+		}
+	}
+
+	rf.votedFor = args.CandidateId
+	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
+	reply.VoteGranted = true
+	reply.Term = rf.currentTerm
+	DPrintf("Ins %v recv reqVote from %v, granted\n", rf.me, args.CandidateId)
 }
 
 //
@@ -259,23 +280,40 @@ type AppendEntriesArgs struct {
 type AppendEntriesReply struct {
 	Term    int
 	Success bool
+	Reason  int
+}
+
+func (rf *Raft) HeartbeatShooter() {
+	for i := 0; i < len(rf.peers); i++ {
+		if i == rf.me {
+			continue
+		}
+		go rf.FollowerShooter(i)
+	}
 }
 
 // Only launched in leader routine
-func (rf *Raft) HeartbeatShooter() {
+func (rf *Raft) FollowerShooter(id int) {
 	rf.mu.Lock()
 	for rf.state == LEADER {
-		for i := 0; i < len(rf.peers); i++ {
-			if i == rf.me {
-				continue
-			}
-			args := &AppendEntriesArgs{
-				Term:     rf.currentTerm,
-				LeaderId: rf.me,
-			}
-			reply := &AppendEntriesReply{}
-			go rf.sendAppendEntries(i, args, reply)
+		args := &AppendEntriesArgs{
+			Term:         rf.currentTerm,
+			LeaderId:     rf.me,
+			LeaderCommit: rf.commitIndex,
 		}
+		lastLogIdx := len(rf.log)
+		if lastLogIdx >= rf.nextIndex[id] {
+			for i := rf.nextIndex[id]; i <= lastLogIdx; i++ {
+				args.Entries = append(args.Entries, rf.log[i-1])
+			}
+			args.PrevLogIndex = rf.nextIndex[id] - 1
+			if args.PrevLogIndex >= 1 {
+				args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
+			}
+		}
+		reply := &AppendEntriesReply{}
+		go rf.sendAppendEntries(id, args, reply)
+
 		rf.mu.Unlock()
 		time.Sleep(HEARTBEAT_INTERVAL * time.Millisecond)
 		rf.mu.Lock()
@@ -292,9 +330,10 @@ func (rf *Raft) ElectionRunner() {
 	rf.state = CANDIDATE
 	rf.votedFor = rf.me
 	rf.forNum = 1
+	rf.totNum = 1
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND)) // Prepare for re-election
 
-	// Send requestVote to all servers
+	// Send requestVote to all servers (except myself)
 	for i := 0; i < len(rf.peers); i++ {
 		if i == rf.me {
 			continue
@@ -345,36 +384,87 @@ func (rf *Raft) TimeoutWatcher() {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	DPrintf("Ins %v recv heartbeat from %v\n", rf.me, args.LeaderId)
+	//DPrintf("Ins %v recv heartbeat from %v\n", rf.me, args.LeaderId)
 	if args.Term < rf.currentTerm {
 		reply.Success = false
 		reply.Term = rf.currentTerm
+		reply.Reason = OUTDATED_TERM
 		return
 	}
 
-	if rf.state == FOLLOWER {
-		// Routine heartbeat
-		// If comes higher term, just accept it
-		rf.Reduction(args.Term, args.LeaderId)
-		reply.Success = true
-		reply.Term = rf.currentTerm
-	} else if rf.state == CANDIDATE {
-		// Other one has preceded, reduce to a follower
-		rf.Reduction(args.Term, args.LeaderId)
-		reply.Success = true
-		reply.Term = rf.currentTerm
-	} else if rf.state == LEADER {
-		// May happen after partition recovery, receiving
-		// heartbeat from a newly elected leader...
-		rf.Reduction(args.Term, args.LeaderId)
-		reply.Success = true
-		reply.Term = rf.currentTerm
+	// Unconditional reduction
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
+		rf.state = FOLLOWER
 	}
+
+	// Reset timer
+	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
+
+	// Check prev log match
+	if args.PrevLogIndex > 0 {
+		if len(rf.log) < args.PrevLogIndex || rf.log[args.PrevLogIndex-1].Term != args.PrevLogTerm {
+			reply.Success = false
+			reply.Term = rf.currentTerm
+			reply.Reason = LOG_INCONSISTENCY
+			return
+		}
+	}
+
+	// Delete confliction entries
+	if len(rf.log) > args.PrevLogIndex && rf.log[args.PrevLogIndex].Term != args.Term {
+		rf.log = rf.log[:args.PrevLogIndex]
+	}
+
+	rf.log = append(rf.log, args.Entries...)
+	if args.LeaderCommit > rf.commitIndex {
+		if args.LeaderCommit < len(rf.log) {
+			rf.commitIndex = args.LeaderCommit
+		} else {
+			rf.commitIndex = len(rf.log)
+		}
+	}
+
+	reply.Success = true
+	reply.Term = rf.currentTerm
+}
+
+func (rf *Raft) replicatedByMajority(idx int) {
+	cnt := 0
+	for f := 0; f < len(rf.peers); f++ {
+		if rf.matchIndex[f] >= idx {
+			cnt++
+		}
+	}
+
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	DPrintf("Ins %v send heartbeat to %v\n", rf.me, server)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if reply.Success {
+		lastIdx := len(args.Entries) + args.PrevLogIndex
+		rf.nextIndex[server] = lastIdx + 1
+		rf.matchIndex[server] += len(args.Entries)
+		// Check for update matchIndex
+		for i := rf.commitIndex + 1; i < lastIdx; i++ {
+			rf.repCnt[i]++
+			if rf.log[i-1].Term != rf.currentTerm {
+				continue
+			}
+			if rf.repCnt[i] > len(rf.peers)/2 {
+				rf.commitIndex = i
+			}
+		}
+	} else if reply.Reason == LOG_INCONSISTENCY {
+		fmt.Println("error")
+		rf.nextIndex[server]--
+		// TODO: retry immediately
+	}
 	return ok
 }
 
@@ -393,13 +483,26 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := -1
-	isLeader := true
 
 	// Your code here (2B).
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if rf.state != LEADER {
+		return -1, rf.currentTerm, false
+	}
 
-	return index, term, isLeader
+	newLogEntryPtr := &LogEntry{
+		Content: command,
+		Term:    rf.currentTerm,
+		Index:   len(rf.log) + 1,
+	}
+
+	rf.log = append(rf.log, newLogEntryPtr)
+	logIndex := len(rf.log)
+	rf.matchIndex[rf.me]++
+	rf.repCnt[logIndex] = 1
+
+	return logIndex, rf.currentTerm, true
 }
 
 //
@@ -446,9 +549,16 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		commitIndex:   0,
 		lastApplied:   0,
 		currentTerm:   0,
+		nextIndex:     make([]int, len(peers)),
+		matchIndex:    make([]int, len(peers)),
 		electionTimer: time.NewTimer(RandGenerator(LOWER_BOUND, UPPER_BOUND)),
 	}
 	rf.cond = sync.NewCond(&rf.mu)
+	rf.repCnt = make(map[int]int)
+	for i := 0; i < len(peers); i++ {
+		rf.nextIndex[i] = len(rf.log) + 1
+		rf.matchIndex[i] = 0
+	}
 
 	// Your initialization code here (2A, 2B, 2C).
 	go rf.TimeoutWatcher()
