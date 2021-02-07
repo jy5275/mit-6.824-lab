@@ -90,7 +90,6 @@ type Raft struct {
 
 	nextIndex     []int
 	matchIndex    []int
-	repCnt        map[int]int
 	electionTimer *time.Timer
 }
 
@@ -184,8 +183,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		// Outdated election, ignore it
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
-			rf.currentTerm, args.Term, args.CandidateId)
+		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 1\n", rf.me,
+			rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
 
@@ -200,8 +199,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if rf.votedFor != -1 {
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
-			rf.currentTerm, args.Term, args.CandidateId)
+		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 2\n", rf.me,
+			rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
 
@@ -213,8 +212,9 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			// Not up-to-date
 			reply.VoteGranted = false
 			reply.Term = rf.currentTerm
-			DPrintf("Ins %v(%v) recv reqVote from %v(%v), not grant\n", rf.me,
-				rf.currentTerm, args.Term, args.CandidateId)
+			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 3, recv <t,id>=<%v,%v>, mine <%v,%v>\n",
+				rf.me, rf.currentTerm, args.CandidateId, args.Term,
+				args.LastLogTerm, args.LastLogIndex, lastLog.Term, len(rf.log))
 			return
 		}
 	}
@@ -223,7 +223,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 	reply.VoteGranted = true
 	reply.Term = rf.currentTerm
-	DPrintf("Ins %v recv reqVote from %v, granted\n", rf.me, args.CandidateId)
+	DPrintf("[ELECTION] Ins %v recv reqVote from %v, granted\n", rf.me, args.CandidateId)
 }
 
 //
@@ -256,10 +256,16 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 //
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	DPrintf("Ins %v send reqVote to %v\n", rf.me, server)
+	DPrintf("[ELECTION] Ins %v send reqVote to %v\n", rf.me, server)
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	if args.Term < rf.currentTerm {
+		// Do nothing
+		return ok
+	}
+
 	if reply.VoteGranted {
 		rf.forNum++
 	}
@@ -275,6 +281,12 @@ type AppendEntriesArgs struct {
 	PrevLogTerm  int
 	Entries      []*LogEntry
 	LeaderCommit int
+}
+
+func (a *AppendEntriesArgs) String() string {
+	return fmt.Sprintf("term=%v, leaderId=%v, prevLogIdx=%v, prevLogTerm=%v, logs=(%v, %v], leaderCommit=%v",
+		a.Term, a.LeaderId, a.PrevLogIndex, a.PrevLogTerm, a.PrevLogIndex,
+		a.PrevLogIndex+len(a.Entries), a.LeaderCommit)
 }
 
 type AppendEntriesReply struct {
@@ -300,15 +312,16 @@ func (rf *Raft) FollowerShooter(id int) {
 			Term:         rf.currentTerm,
 			LeaderId:     rf.me,
 			LeaderCommit: rf.commitIndex,
+			PrevLogIndex: rf.nextIndex[id] - 1,
 		}
+		if args.PrevLogIndex >= 1 {
+			args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
+		}
+
 		lastLogIdx := len(rf.log)
 		if lastLogIdx >= rf.nextIndex[id] {
 			for i := rf.nextIndex[id]; i <= lastLogIdx; i++ {
 				args.Entries = append(args.Entries, rf.log[i-1])
-			}
-			args.PrevLogIndex = rf.nextIndex[id] - 1
-			if args.PrevLogIndex >= 1 {
-				args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
 			}
 		}
 		reply := &AppendEntriesReply{}
@@ -339,8 +352,12 @@ func (rf *Raft) ElectionRunner() {
 			continue
 		}
 		args := &RequestVoteArgs{
-			Term:        rf.currentTerm,
-			CandidateId: rf.me,
+			Term:         rf.currentTerm,
+			CandidateId:  rf.me,
+			LastLogIndex: len(rf.log),
+		}
+		if len(rf.log) > 0 {
+			args.LastLogTerm = rf.log[len(rf.log)-1].Term
 		}
 		reply := &RequestVoteReply{}
 		go rf.sendRequestVote(i, args, reply)
@@ -359,9 +376,13 @@ func (rf *Raft) ElectionRunner() {
 
 	if rf.forNum > (len(rf.peers))/2 {
 		// Win the election
-		DPrintf("Ins %v won election(%v) with %v grants\n", rf.me, rf.currentTerm, rf.forNum)
+		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants\n", rf.me, rf.currentTerm, rf.forNum)
 		rf.state = LEADER
 		rf.electionTimer.Stop()
+		for i := 0; i < len(rf.peers); i++ {
+			rf.nextIndex[i] = len(rf.log) + 1
+			rf.matchIndex[i] = 0
+		}
 		go rf.HeartbeatShooter()
 	} else {
 		// No enough supportting votes. Possible causes:
@@ -375,7 +396,7 @@ func (rf *Raft) ElectionRunner() {
 func (rf *Raft) TimeoutWatcher() {
 	for {
 		<-rf.electionTimer.C
-		DPrintf("Ins %v timeout\n", rf.me)
+		DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
 		go rf.ElectionRunner()
 	}
 }
@@ -407,17 +428,38 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		if len(rf.log) < args.PrevLogIndex || rf.log[args.PrevLogIndex-1].Term != args.PrevLogTerm {
 			reply.Success = false
 			reply.Term = rf.currentTerm
+			if args.PrevLogIndex < 0 {
+				fmt.Println("PrevLogIdx < 0")
+			}
 			reply.Reason = LOG_INCONSISTENCY
 			return
 		}
 	}
 
-	// Delete confliction entries
-	if len(rf.log) > args.PrevLogIndex && rf.log[args.PrevLogIndex].Term != args.Term {
-		rf.log = rf.log[:args.PrevLogIndex]
+	i := 0
+	myPtr := args.PrevLogIndex
+	for myPtr < len(rf.log) && i < len(args.Entries) && args.Entries[i].Term == rf.log[myPtr].Term {
+		i++
+		myPtr++
+	}
+	// Three cases:
+	if myPtr >= len(rf.log) {
+		// 1. Normal - just append new entries
+		rf.log = append(rf.log, args.Entries[i:]...)
+		// 2. Recv entries are outdated
+	} else if i >= len(args.Entries) {
+		// Ignore them
+	} else if args.Entries[i].Term != rf.log[myPtr].Term {
+		// 3. confliction
+		rf.log = rf.log[:myPtr]
+		rf.log = append(rf.log, args.Entries[i:]...)
+	} else {
+		fmt.Println("Error1023")
 	}
 
-	rf.log = append(rf.log, args.Entries...)
+	DPrintf("[APP] %v(%v) recv logs of (%v, %v]", rf.me,
+		rf.currentTerm, len(rf.log)-len(args.Entries), len(rf.log))
+
 	if args.LeaderCommit > rf.commitIndex {
 		if args.LeaderCommit < len(rf.log) {
 			rf.commitIndex = args.LeaderCommit
@@ -430,39 +472,53 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Term = rf.currentTerm
 }
 
-func (rf *Raft) replicatedByMajority(idx int) {
+func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 	cnt := 0
 	for f := 0; f < len(rf.peers); f++ {
 		if rf.matchIndex[f] >= idx {
 			cnt++
 		}
 	}
-
+	if cnt > len(rf.peers)/2 {
+		return true, cnt
+	}
+	return false, cnt
 }
 
+// Leader only
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	DPrintf("Ins %v send heartbeat to %v\n", rf.me, server)
+	DPrintf("[APP] %v(%v) -> %v with args %v\n", rf.me, rf.currentTerm, server, args)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	if args.Term < rf.currentTerm {
+		// Do nothing
+		return ok
+	}
+
 	if reply.Success {
 		lastIdx := len(args.Entries) + args.PrevLogIndex
-		rf.nextIndex[server] = lastIdx + 1
-		rf.matchIndex[server] += len(args.Entries)
+		rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
+		rf.nextIndex[server] = rf.matchIndex[server] + 1
 		// Check for update matchIndex
-		for i := rf.commitIndex + 1; i < lastIdx; i++ {
-			rf.repCnt[i]++
+		for i := rf.commitIndex + 1; i <= lastIdx; i++ {
 			if rf.log[i-1].Term != rf.currentTerm {
 				continue
 			}
-			if rf.repCnt[i] > len(rf.peers)/2 {
+			if ok, num := rf.replicatedByMajority(i); ok {
 				rf.commitIndex = i
+				DPrintf("[APP] %v(%v) commits log %v with %v replicas\n", rf.me,
+					rf.currentTerm, i, num)
 			}
+
 		}
 	} else if reply.Reason == LOG_INCONSISTENCY {
-		fmt.Println("error")
-		rf.nextIndex[server]--
+		DPrintf("[APP] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, args.PrevLogIndex)
+		rf.nextIndex[server] = args.PrevLogIndex
+		if rf.nextIndex[server] <= 0 {
+			fmt.Println("Error: nextIndex is zero")
+		}
 		// TODO: retry immediately
 	}
 	return ok
@@ -499,8 +555,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	rf.log = append(rf.log, newLogEntryPtr)
 	logIndex := len(rf.log)
-	rf.matchIndex[rf.me]++
-	rf.repCnt[logIndex] = 1
+	rf.matchIndex[rf.me] = len(rf.log)
+
+	DPrintf("[SYS] New cmd at idx=%v(%v), val=%v\n", logIndex,
+		rf.currentTerm, newLogEntryPtr.Content)
 
 	return logIndex, rf.currentTerm, true
 }
@@ -526,6 +584,28 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
+func (rf *Raft) Applier(applyCh chan ApplyMsg) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	for {
+		for rf.lastApplied < rf.commitIndex {
+			newIdx := rf.lastApplied + 1
+			msg := ApplyMsg{
+				Command:      rf.log[newIdx-1].Content,
+				CommandValid: true,
+				CommandIndex: newIdx,
+			}
+			applyCh <- msg
+			DPrintf("[SYS] %v(%v) applies log %v, val=%v\n", rf.me, rf.currentTerm,
+				newIdx, msg.Command)
+			rf.lastApplied++
+		}
+		rf.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		rf.mu.Lock()
+	}
+}
+
 //
 // the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
@@ -539,7 +619,7 @@ func (rf *Raft) killed() bool {
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	DPrintf("Start ins %v\n", me)
+	DPrintf("[SYS] Start ins %v\n", me)
 	rf := &Raft{
 		peers:         peers,
 		persister:     persister,
@@ -554,7 +634,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		electionTimer: time.NewTimer(RandGenerator(LOWER_BOUND, UPPER_BOUND)),
 	}
 	rf.cond = sync.NewCond(&rf.mu)
-	rf.repCnt = make(map[int]int)
 	for i := 0; i < len(peers); i++ {
 		rf.nextIndex[i] = len(rf.log) + 1
 		rf.matchIndex[i] = 0
@@ -562,6 +641,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// Your initialization code here (2A, 2B, 2C).
 	go rf.TimeoutWatcher()
+	go rf.Applier(applyCh)
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
