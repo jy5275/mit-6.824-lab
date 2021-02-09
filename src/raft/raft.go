@@ -18,12 +18,14 @@ package raft
 //
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"../labgob"
 	"../labrpc"
 )
 
@@ -93,6 +95,15 @@ type Raft struct {
 	electionTimer *time.Timer
 }
 
+func (rf *Raft) PrintLogs() string {
+	logStr := "<len=" + fmt.Sprintf("%v", len(rf.log))
+	// for i := 0; i < len(rf.log); i++ {
+	// 	logStr = fmt.Sprintf("%v, %v(%v)", logStr, rf.log[i].Content, rf.log[i].Term)
+	// }
+	logStr += ">"
+	return logStr
+}
+
 func RandGenerator(s, e int) time.Duration {
 	r := e - s
 	randNum := rand.Intn(r) + s
@@ -122,6 +133,15 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.yyy)
 	// data := w.Bytes()
 	// rf.persister.SaveRaftState(data)
+
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.log)
+
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 }
 
 //
@@ -144,6 +164,29 @@ func (rf *Raft) readPersist(data []byte) {
 	//   rf.xxx = xxx
 	//   rf.yyy = yyy
 	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var currentTermD int
+	var votedForD int
+	var logD []*LogEntry
+	if d.Decode(&currentTermD) != nil {
+		fmt.Println("Decode currentTerm error")
+	} else {
+		rf.currentTerm = currentTermD
+	}
+
+	if d.Decode(&votedForD) != nil {
+		fmt.Println("Decode votedFor error")
+	} else {
+		rf.votedFor = votedForD
+	}
+
+	if d.Decode(&logD) != nil {
+		fmt.Println("Decode log error")
+	} else {
+		rf.log = logD
+	}
+	DPrintf("[PER] %v(%v) recovers with log %v", rf.me, rf.currentTerm, rf.PrintLogs())
 }
 
 type LogEntry struct {
@@ -178,7 +221,11 @@ type RequestVoteReply struct {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	defer func() {
+		rf.persist()
+		rf.mu.Unlock()
+	}()
+
 	if args.Term < rf.currentTerm {
 		// Outdated election, ignore it
 		reply.VoteGranted = false
@@ -212,9 +259,9 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			// Not up-to-date
 			reply.VoteGranted = false
 			reply.Term = rf.currentTerm
-			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 3, recv <t,id>=<%v,%v>, mine <%v,%v>\n",
+			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 3, recv <t,id>=<%v,%v>, my log: %v\n",
 				rf.me, rf.currentTerm, args.CandidateId, args.Term,
-				args.LastLogTerm, args.LastLogIndex, lastLog.Term, len(rf.log))
+				args.LastLogTerm, args.LastLogIndex, rf.PrintLogs())
 			return
 		}
 	}
@@ -223,7 +270,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 	reply.VoteGranted = true
 	reply.Term = rf.currentTerm
-	DPrintf("[ELECTION] Ins %v recv reqVote from %v, granted\n", rf.me, args.CandidateId)
+	DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v, granted. My log: %v\n",
+		rf.me, rf.currentTerm, args.CandidateId, rf.PrintLogs())
 }
 
 //
@@ -290,9 +338,11 @@ func (a *AppendEntriesArgs) String() string {
 }
 
 type AppendEntriesReply struct {
-	Term    int
-	Success bool
-	Reason  int
+	Term         int
+	Success      bool
+	Reason       int
+	ConflictTerm int
+	ConflictIdx  int
 }
 
 func (rf *Raft) HeartbeatShooter() {
@@ -307,12 +357,16 @@ func (rf *Raft) HeartbeatShooter() {
 // Only launched in leader routine
 func (rf *Raft) FollowerShooter(id int) {
 	rf.mu.Lock()
-	for rf.state == LEADER {
+	for !rf.killed() && rf.state == LEADER {
 		args := &AppendEntriesArgs{
 			Term:         rf.currentTerm,
 			LeaderId:     rf.me,
 			LeaderCommit: rf.commitIndex,
 			PrevLogIndex: rf.nextIndex[id] - 1,
+		}
+		if args.PrevLogIndex > len(rf.log) {
+			DPrintf("[ERROR] prevLogIndex(%v) out of log range(%v) to follower %v from leader %v(%v)",
+				args.PrevLogIndex, len(rf.log), id, rf.me, rf.currentTerm)
 		}
 		if args.PrevLogIndex >= 1 {
 			args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
@@ -336,7 +390,10 @@ func (rf *Raft) FollowerShooter(id int) {
 
 func (rf *Raft) ElectionRunner() {
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	defer func() {
+		rf.persist()
+		rf.mu.Unlock()
+	}()
 
 	// Start an election
 	rf.currentTerm++
@@ -345,6 +402,7 @@ func (rf *Raft) ElectionRunner() {
 	rf.forNum = 1
 	rf.totNum = 1
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND)) // Prepare for re-election
+	rf.persist()
 
 	// Send requestVote to all servers (except myself)
 	for i := 0; i < len(rf.peers); i++ {
@@ -376,7 +434,8 @@ func (rf *Raft) ElectionRunner() {
 
 	if rf.forNum > (len(rf.peers))/2 {
 		// Win the election
-		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants\n", rf.me, rf.currentTerm, rf.forNum)
+		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants and logs %v\n",
+			rf.me, rf.currentTerm, rf.forNum, rf.PrintLogs())
 		rf.state = LEADER
 		rf.electionTimer.Stop()
 		for i := 0; i < len(rf.peers); i++ {
@@ -394,7 +453,7 @@ func (rf *Raft) ElectionRunner() {
 
 // Listen on timeout event
 func (rf *Raft) TimeoutWatcher() {
-	for {
+	for !rf.killed() {
 		<-rf.electionTimer.C
 		DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
 		go rf.ElectionRunner()
@@ -404,7 +463,11 @@ func (rf *Raft) TimeoutWatcher() {
 // Heartbeat handler
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	defer func() {
+		rf.persist()
+		rf.mu.Unlock()
+	}()
+
 	//DPrintf("Ins %v recv heartbeat from %v\n", rf.me, args.LeaderId)
 	if args.Term < rf.currentTerm {
 		reply.Success = false
@@ -428,8 +491,19 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		if len(rf.log) < args.PrevLogIndex || rf.log[args.PrevLogIndex-1].Term != args.PrevLogTerm {
 			reply.Success = false
 			reply.Term = rf.currentTerm
-			if args.PrevLogIndex < 0 {
-				fmt.Println("PrevLogIdx < 0")
+
+			if args.PrevLogIndex <= len(rf.log) {
+				reply.ConflictIdx = args.PrevLogIndex
+				reply.ConflictTerm = rf.log[args.PrevLogIndex-1].Term
+				for k := reply.ConflictIdx - 1; k >= 0; k-- {
+					if rf.log[k].Term == reply.ConflictTerm {
+						reply.ConflictIdx = k + 1
+					} else {
+						break
+					}
+				}
+			} else { // Some logs are missing
+				reply.ConflictIdx = len(rf.log) + 1
 			}
 			reply.Reason = LOG_INCONSISTENCY
 			return
@@ -451,14 +525,18 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		// Ignore them
 	} else if args.Entries[i].Term != rf.log[myPtr].Term {
 		// 3. confliction
+		DPrintf("[APP] %v(%v) conflict: id,t=<%v, %v> covered by <%v, %v> from %v(%v)\n",
+			rf.me, rf.currentTerm, myPtr+1, rf.log[myPtr].Term,
+			myPtr+1, args.Entries[i].Term, args.LeaderId, args.Term)
 		rf.log = rf.log[:myPtr]
 		rf.log = append(rf.log, args.Entries[i:]...)
 	} else {
 		fmt.Println("Error1023")
 	}
 
-	DPrintf("[APP] %v(%v) recv logs of (%v, %v]", rf.me,
-		rf.currentTerm, len(rf.log)-len(args.Entries), len(rf.log))
+	DPrintf("[APP] %v(%v) recv logs from %v(%v), (%v, %v] = %v",
+		rf.me, rf.currentTerm, args.LeaderId, args.Term,
+		len(rf.log)-len(args.Entries), len(rf.log), rf.PrintLogs())
 
 	if args.LeaderCommit > rf.commitIndex {
 		if args.LeaderCommit < len(rf.log) {
@@ -487,7 +565,8 @@ func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 
 // Leader only
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	DPrintf("[APP] %v(%v) -> %v with args %v\n", rf.me, rf.currentTerm, server, args)
+	DPrintf("[APP] %v(%v) -> %v with args %v; nextIdx=%v\n",
+		rf.me, rf.currentTerm, server, args, rf.nextIndex)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
 	rf.mu.Lock()
@@ -508,6 +587,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			}
 			if ok, num := rf.replicatedByMajority(i); ok {
 				rf.commitIndex = i
+				rf.persist()
 				DPrintf("[APP] %v(%v) commits log %v with %v replicas\n", rf.me,
 					rf.currentTerm, i, num)
 			}
@@ -515,7 +595,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		}
 	} else if reply.Reason == LOG_INCONSISTENCY {
 		DPrintf("[APP] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, args.PrevLogIndex)
-		rf.nextIndex[server] = args.PrevLogIndex
+		rf.nextIndex[server] = reply.ConflictIdx
 		if rf.nextIndex[server] <= 0 {
 			fmt.Println("Error: nextIndex is zero")
 		}
@@ -542,7 +622,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	// Your code here (2B).
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	defer func() {
+		rf.persist()
+		rf.mu.Unlock()
+	}()
+
 	if rf.state != LEADER {
 		return -1, rf.currentTerm, false
 	}
@@ -557,8 +641,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	logIndex := len(rf.log)
 	rf.matchIndex[rf.me] = len(rf.log)
 
-	DPrintf("[SYS] New cmd at idx=%v(%v), val=%v\n", logIndex,
-		rf.currentTerm, newLogEntryPtr.Content)
+	DPrintf("[SYS] New cmd %v recv at idx=%v(%v), val=%v, %v\n", rf.me,
+		logIndex, rf.currentTerm, newLogEntryPtr.Content, rf.PrintLogs())
 
 	return logIndex, rf.currentTerm, true
 }
@@ -587,7 +671,7 @@ func (rf *Raft) killed() bool {
 func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	for {
+	for !rf.killed() {
 		for rf.lastApplied < rf.commitIndex {
 			newIdx := rf.lastApplied + 1
 			msg := ApplyMsg{
