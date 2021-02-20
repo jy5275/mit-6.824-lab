@@ -1,13 +1,18 @@
 package kvraft
 
-import "../labrpc"
-import "crypto/rand"
-import "math/big"
+import (
+	"crypto/rand"
+	"math/big"
 
+	"../labrpc"
+)
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	cachedLeader int
+	cliID        int64
+	seq          int
 }
 
 func nrand() int64 {
@@ -20,6 +25,7 @@ func nrand() int64 {
 func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
+	ck.cliID = nrand() % 100000
 	// You'll have to add code here.
 	return ck
 }
@@ -39,7 +45,30 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
-	return ""
+	reply := &GetReply{}
+	args := &GetArgs{
+		Seq:   ck.seq,
+		Key:   key,
+		CliID: ck.cliID,
+	}
+	leaderId := ck.cachedLeader
+	for {
+		DPrintf("Cli %v send GET cmd{k=%v} to server %v\n",
+			ck.cliID, ck.cliID, leaderId)
+		ok := ck.servers[leaderId].Call("KVServer.Get", args, reply)
+		if ok && (reply.Err == "" || reply.Err == OK || reply.Err == ErrNoKey) {
+			ck.cachedLeader = leaderId
+			DPrintf("Cli %v send GET cmd{k=%v} to server %v success, err=%v\n",
+				key, ck.cliID, leaderId, reply.Err)
+			break
+		}
+		leaderId = (leaderId + 1) % len(ck.servers)
+		// DPrintf("Cli %v GET cmd(seq=%v) get err resp(%v), resend to server %v\n",
+		// 	ck.cliID, args.Seq, reply.Err, leaderId)
+	}
+	DPrintf("Cli %v get data: <%v, %v> ok\n", ck.cliID, key, reply.Value)
+	ck.seq++
+	return reply.Value
 }
 
 //
@@ -54,11 +83,37 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	reply := &PutAppendReply{}
+	args := &PutAppendArgs{
+		Key:   key,
+		Value: value,
+		Op:    op,
+		CliID: ck.cliID,
+		Seq:   ck.seq,
+	}
+	leaderId := ck.cachedLeader
+	for {
+		DPrintf("Cli %v send PA cmd{op=%v, k=%v, v=%v} to server %v\n",
+			ck.cliID, op, key, value, leaderId)
+		ok := ck.servers[leaderId].Call("KVServer.PutAppend", args, reply)
+		if ok && (reply.Err == "" || reply.Err == OK || reply.Err == ErrNoKey) {
+			ck.cachedLeader = leaderId
+			DPrintf("Cli %v send PA cmd{op=%v, k=%v, v=%v} to server %v success, err=%v\n",
+				ck.cliID, op, key, value, leaderId, reply.Err)
+			break
+		}
+		leaderId = (leaderId + 1) % len(ck.servers)
+		// DPrintf("Cli %v PA cmd(seq=%v) get err resp(%v), resend to server %v\n",
+		// 	args.CliID, args.Seq, reply.Err, leaderId)
+	}
+	ck.seq++
 }
 
 func (ck *Clerk) Put(key string, value string) {
 	ck.PutAppend(key, value, "Put")
+	DPrintf("Cli %v put data: <%v, %v> ok\n", ck.cliID, key, value)
 }
 func (ck *Clerk) Append(key string, value string) {
 	ck.PutAppend(key, value, "Append")
+	DPrintf("Cli %v append data: <%v, ...%v> ok\n", ck.cliID, key, value)
 }

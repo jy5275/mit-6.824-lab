@@ -230,8 +230,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		// Outdated election, ignore it
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 1\n", rf.me,
-			rf.currentTerm, args.CandidateId, args.Term)
+		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to outdated term\n",
+			rf.me, rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
 
@@ -246,7 +246,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if rf.votedFor != -1 {
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 2\n", rf.me,
+		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to voted\n", rf.me,
 			rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
@@ -259,7 +259,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			// Not up-to-date
 			reply.VoteGranted = false
 			reply.Term = rf.currentTerm
-			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), not grant 3, recv <t,id>=<%v,%v>, my log: %v\n",
+			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT, recv <t,id>=<%v,%v>, my log: %v\n",
 				rf.me, rf.currentTerm, args.CandidateId, args.Term,
 				args.LastLogTerm, args.LastLogIndex, rf.PrintLogs())
 			return
@@ -304,7 +304,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 //
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	DPrintf("[ELECTION] Ins %v send reqVote to %v\n", rf.me, server)
+	DPrintf("[ELECTION] Ins %v(%v) send reqVote to %v\n", rf.me, args.Term, server)
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
 
 	rf.mu.Lock()
@@ -332,7 +332,7 @@ type AppendEntriesArgs struct {
 }
 
 func (a *AppendEntriesArgs) String() string {
-	return fmt.Sprintf("term=%v, leaderId=%v, prevLogIdx=%v, prevLogTerm=%v, logs=(%v, %v], leaderCommit=%v",
+	return fmt.Sprintf("<Term=%v, LeaderId=%v, PrevLogIdx=%v, PrevLogTerm=%v, Logs=(%v, %v], LeaderCommit=%v>",
 		a.Term, a.LeaderId, a.PrevLogIndex, a.PrevLogTerm, a.PrevLogIndex,
 		a.PrevLogIndex+len(a.Entries), a.LeaderCommit)
 }
@@ -343,6 +343,11 @@ type AppendEntriesReply struct {
 	Reason       int
 	ConflictTerm int
 	ConflictIdx  int
+}
+
+func (a *AppendEntriesReply) String() string {
+	return fmt.Sprintf("<Term=%v, Success=%v, Reason=%v, ConflictTerm=%v, ConflictIdx=%v>",
+		a.Term, a.Success, a.Reason, a.ConflictTerm, a.ConflictIdx)
 }
 
 func (rf *Raft) HeartbeatShooter() {
@@ -468,11 +473,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.mu.Unlock()
 	}()
 
-	//DPrintf("Ins %v recv heartbeat from %v\n", rf.me, args.LeaderId)
+	DPrintf("[->AppEnt] %v(%v) recv AppEnt: %v, curLogLen=%v, processing...\n",
+		rf.me, rf.currentTerm, args, len(rf.log))
 	if args.Term < rf.currentTerm {
 		reply.Success = false
 		reply.Term = rf.currentTerm
 		reply.Reason = OUTDATED_TERM
+		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to outdated term\n",
+			rf.me, rf.currentTerm, args.LeaderId, args.Term)
 		return
 	}
 
@@ -493,6 +501,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			reply.Term = rf.currentTerm
 
 			if args.PrevLogIndex <= len(rf.log) {
+				// Conflict prevLogTerm!
 				reply.ConflictIdx = args.PrevLogIndex
 				reply.ConflictTerm = rf.log[args.PrevLogIndex-1].Term
 				for k := reply.ConflictIdx - 1; k >= 0; k-- {
@@ -502,10 +511,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 						break
 					}
 				}
-			} else { // Some logs are missing
+			} else {
+				// Some logs are missing
 				reply.ConflictIdx = len(rf.log) + 1
 			}
 			reply.Reason = LOG_INCONSISTENCY
+			DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons\n",
+				rf.me, rf.currentTerm, args.LeaderId, args.Term)
 			return
 		}
 	}
@@ -525,7 +537,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		// Ignore them
 	} else if args.Entries[i].Term != rf.log[myPtr].Term {
 		// 3. confliction
-		DPrintf("[APP] %v(%v) conflict: id,t=<%v, %v> covered by <%v, %v> from %v(%v)\n",
+		DPrintf("[AppEnt] %v(%v) conflict: id,t=<%v, %v> covered by <%v, %v> from %v(%v)\n",
 			rf.me, rf.currentTerm, myPtr+1, rf.log[myPtr].Term,
 			myPtr+1, args.Entries[i].Term, args.LeaderId, args.Term)
 		rf.log = rf.log[:myPtr]
@@ -533,10 +545,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	} else {
 		fmt.Println("Error1023")
 	}
-
-	DPrintf("[APP] %v(%v) recv logs from %v(%v), (%v, %v] = %v",
-		rf.me, rf.currentTerm, args.LeaderId, args.Term,
-		len(rf.log)-len(args.Entries), len(rf.log), rf.PrintLogs())
 
 	if args.LeaderCommit > rf.commitIndex {
 		if args.LeaderCommit < len(rf.log) {
@@ -548,6 +556,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	reply.Success = true
 	reply.Term = rf.currentTerm
+
+	DPrintf("[->AppEnt] %v(%v) reply ok to AppEnt recv from %v(%v): %v\n",
+		rf.me, rf.currentTerm, args.LeaderId, args.Term, reply)
 }
 
 func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
@@ -565,7 +576,7 @@ func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 
 // Leader only
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	DPrintf("[APP] %v(%v) -> %v with args %v; nextIdx=%v\n",
+	DPrintf("[AppEnt-->] %v(%v)->%v with args %v; nextIdx=%v, ready...\n",
 		rf.me, rf.currentTerm, server, args, rf.nextIndex)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
@@ -573,6 +584,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
 		// Do nothing
+		DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader=%v, term=%v\n",
+			rf.me, args.Term)
 		return ok
 	}
 
@@ -588,18 +601,23 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			if ok, num := rf.replicatedByMajority(i); ok {
 				rf.commitIndex = i
 				rf.persist()
-				DPrintf("[APP] %v(%v) commits log %v with %v replicas\n", rf.me,
-					rf.currentTerm, i, num)
+				DPrintf("[AppEnt===>] %v(%v) commits log %v with %v replicas\n", rf.me,
+					args.Term, i, num)
 			}
-
 		}
 	} else if reply.Reason == LOG_INCONSISTENCY {
-		DPrintf("[APP] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, args.PrevLogIndex)
+		DPrintf("[AppEnt===>] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, args.PrevLogIndex)
 		rf.nextIndex[server] = reply.ConflictIdx
 		if rf.nextIndex[server] <= 0 {
 			fmt.Println("Error: nextIndex is zero")
 		}
 		// TODO: retry immediately
+	} else if reply.Reason == OUTDATED_TERM {
+		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
+			rf.me, args.Term, server, reply.Term)
+	} else {
+		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
+			rf.me, args.Term, server, reply.Term, reply.Reason)
 	}
 	return ok
 }
@@ -673,6 +691,7 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 	defer rf.mu.Unlock()
 	for !rf.killed() {
 		for rf.lastApplied < rf.commitIndex {
+			rf.mu.Unlock()
 			newIdx := rf.lastApplied + 1
 			msg := ApplyMsg{
 				Command:      rf.log[newIdx-1].Content,
@@ -680,6 +699,7 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				CommandIndex: newIdx,
 			}
 			applyCh <- msg
+			rf.mu.Lock()
 			DPrintf("[SYS] %v(%v) applies log %v, val=%v\n", rf.me, rf.currentTerm,
 				newIdx, msg.Command)
 			rf.lastApplied++

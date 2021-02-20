@@ -1,15 +1,23 @@
 package kvraft
 
 import (
-	"../labgob"
-	"../labrpc"
 	"log"
-	"../raft"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"../labgob"
+	"../labrpc"
+	"../raft"
 )
 
 const Debug = 0
+
+const (
+	GET    = 0
+	PUT    = 1
+	APPEND = 2
+)
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
 	if Debug > 0 {
@@ -18,15 +26,24 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-
 type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+	OpType int
+	Key    string
+	Value  string
+	CliID  int64
+	Seq    int
+}
+
+func (op *Op) IsEqual(op2 *Op) bool {
+	return op.CliID == op2.CliID && op.Seq == op2.Seq
 }
 
 type KVServer struct {
 	mu      sync.Mutex
+	cond    *sync.Cond
 	me      int
 	rf      *raft.Raft
 	applyCh chan raft.ApplyMsg
@@ -35,15 +52,105 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
+	data        map[string]string
+	appliedLogs []*Op
+	nextSeq     map[int64]int
 }
-
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
+	op := Op{
+		OpType: GET,
+		Key:    args.Key,
+		Value:  "",
+		CliID:  args.CliID,
+		Seq:    args.Seq,
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	idx, initTerm, isLeader := kv.rf.Start(op)
+	if !isLeader {
+		reply.Err = ErrWrongLeader
+		DPrintf("%v is not leader\n", kv.me)
+		return
+	}
+	DPrintf("Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+		idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
+
+	// Keep watching until this log is appied
+	for !kv.killed() {
+		curTerm, isLeader := kv.rf.GetState()
+		if !isLeader || curTerm != initTerm {
+			reply.Err = ErrWrongLeader
+			return
+		}
+		if len(kv.appliedLogs) >= idx {
+			// Log at idx has been applied
+			// Client op must has succeed or failed.
+			if kv.appliedLogs[idx-1].IsEqual(&op) {
+				// success
+				reply.Err = OK
+				reply.Value = kv.data[args.Key]
+			} else {
+				reply.Err = ErrWrongLeader
+			}
+			break
+		}
+		kv.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		kv.mu.Lock()
+		// kv.cond.Wait()
+	}
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+	op := Op{
+		Key:   args.Key,
+		Value: args.Value,
+		CliID: args.CliID,
+		Seq:   args.Seq,
+	}
+	switch args.Op {
+	case "Put":
+		op.OpType = PUT
+	case "Append":
+		op.OpType = APPEND
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	idx, initTerm, isLeader := kv.rf.Start(op)
+	if !isLeader {
+		reply.Err = ErrWrongLeader
+		DPrintf("%v is not leader\n", kv.me)
+		return
+	}
+	DPrintf("PA cmd{log=%v, type=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+		idx, op.OpType, op.Key, op.Value, args.Seq, kv.me, args.CliID)
+
+	// Keep watching until this log is appied in kv.rf.logs
+	for !kv.killed() {
+		curTerm, isLeader := kv.rf.GetState()
+		if !isLeader || curTerm != initTerm {
+			reply.Err = ErrWrongLeader
+			return
+		}
+		if len(kv.appliedLogs) >= idx {
+			if kv.appliedLogs[idx-1].IsEqual(&op) {
+				// success
+				reply.Err = OK
+			} else {
+				reply.Err = ErrWrongLeader
+			}
+			break
+		}
+		kv.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		kv.mu.Lock()
+		// kv.cond.Wait()
+	}
 }
 
 //
@@ -65,6 +172,36 @@ func (kv *KVServer) Kill() {
 func (kv *KVServer) killed() bool {
 	z := atomic.LoadInt32(&kv.dead)
 	return z == 1
+}
+
+func (kv *KVServer) ApplyChListener() {
+	for !kv.killed() {
+		newMsg := <-kv.applyCh
+		applyMsgOp, _ := newMsg.Command.(Op)
+		kv.mu.Lock()
+
+		// Dup detection: just ignore dup cmd in rf.log
+		if applyMsgOp.Seq < kv.nextSeq[applyMsgOp.CliID] {
+			DPrintf("Dup cmd(type=%v) from cli %v, recv seq=%v, nextSeq[%v]=%v\n",
+				applyMsgOp.OpType, applyMsgOp.CliID, applyMsgOp.Seq,
+				applyMsgOp.CliID, kv.nextSeq[applyMsgOp.CliID])
+		} else {
+			kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
+			if applyMsgOp.OpType == PUT {
+				key := applyMsgOp.Key
+				val := applyMsgOp.Value
+				kv.data[key] = val
+			} else if applyMsgOp.OpType == APPEND {
+				key := applyMsgOp.Key
+				val := applyMsgOp.Value
+				kv.data[key] += val
+			}
+		}
+		DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
+		kv.appliedLogs = append(kv.appliedLogs, &applyMsgOp)
+		kv.cond.Broadcast()
+		kv.mu.Unlock()
+	}
 }
 
 //
@@ -89,6 +226,9 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv := new(KVServer)
 	kv.me = me
 	kv.maxraftstate = maxraftstate
+	kv.cond = sync.NewCond(&kv.mu)
+	kv.data = make(map[string]string)
+	kv.nextSeq = make(map[int64]int)
 
 	// You may need initialization code here.
 
@@ -96,6 +236,8 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	// You may need initialization code here.
+	DPrintf("Server %v started...\n", kv.me)
+	go kv.ApplyChListener()
 
 	return kv
 }
