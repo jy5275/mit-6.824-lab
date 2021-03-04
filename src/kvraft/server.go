@@ -17,6 +17,7 @@ const (
 	GET    = 0
 	PUT    = 1
 	APPEND = 2
+	SNAP   = 3
 )
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
@@ -33,12 +34,19 @@ type Op struct {
 	OpType int
 	Key    string
 	Value  string
+	Data   map[string]string
 	CliID  int64
 	Seq    int
 }
 
 func (op *Op) IsEqual(op2 *Op) bool {
 	return op.CliID == op2.CliID && op.Seq == op2.Seq
+}
+
+type Snapshot struct {
+	Data             map[string]string
+	LastIncludedIdx  int
+	LastIncludedTerm int
 }
 
 type KVServer struct {
@@ -101,6 +109,9 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
 		// kv.cond.Wait()
+	}
+	if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
+
 	}
 }
 
@@ -177,29 +188,35 @@ func (kv *KVServer) killed() bool {
 func (kv *KVServer) ApplyChListener() {
 	for !kv.killed() {
 		newMsg := <-kv.applyCh
-		applyMsgOp, _ := newMsg.Command.(Op)
 		kv.mu.Lock()
 
-		// Dup detection: just ignore dup cmd in rf.log
-		if applyMsgOp.Seq < kv.nextSeq[applyMsgOp.CliID] {
-			DPrintf("Dup cmd(type=%v) from cli %v, recv seq=%v, nextSeq[%v]=%v\n",
-				applyMsgOp.OpType, applyMsgOp.CliID, applyMsgOp.Seq,
-				applyMsgOp.CliID, kv.nextSeq[applyMsgOp.CliID])
-		} else {
-			kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
-			if applyMsgOp.OpType == PUT {
-				key := applyMsgOp.Key
-				val := applyMsgOp.Value
-				kv.data[key] = val
-			} else if applyMsgOp.OpType == APPEND {
-				key := applyMsgOp.Key
-				val := applyMsgOp.Value
-				kv.data[key] += val
+		if applyMsgOp, ok := newMsg.Command.(Op); ok {
+			// A normal log entry
+			// Dup detection: just ignore dup cmd in rf.log
+			if applyMsgOp.Seq < kv.nextSeq[applyMsgOp.CliID] {
+				DPrintf("Dup cmd(type=%v) from cli %v, recv seq=%v, nextSeq[%v]=%v\n",
+					applyMsgOp.OpType, applyMsgOp.CliID, applyMsgOp.Seq,
+					applyMsgOp.CliID, kv.nextSeq[applyMsgOp.CliID])
+			} else {
+				kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
+				if applyMsgOp.OpType == PUT {
+					key := applyMsgOp.Key
+					val := applyMsgOp.Value
+					kv.data[key] = val
+				} else if applyMsgOp.OpType == APPEND {
+					key := applyMsgOp.Key
+					val := applyMsgOp.Value
+					kv.data[key] += val
+				}
 			}
+			DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
+			kv.appliedLogs = append(kv.appliedLogs, &applyMsgOp)
+			kv.cond.Broadcast()
+		} else {
+			// Restore snapshot. Should only occur at the beginning
+			snapMap, _ := newMsg.Command.(map[string]string)
+			kv.data = snapMap
 		}
-		DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
-		kv.appliedLogs = append(kv.appliedLogs, &applyMsgOp)
-		kv.cond.Broadcast()
 		kv.mu.Unlock()
 	}
 }
