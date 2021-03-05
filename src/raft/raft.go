@@ -61,11 +61,10 @@ const (
 // ApplyMsg, but set CommandValid to false for these other uses.
 //
 type ApplyMsg struct {
-	CommandValid     bool
-	Command          interface{}
-	CommandIndex     int
-	LastIncludedIdx  int
-	LastIncludedTerm int
+	CommandValid bool
+	Command      interface{}
+	CommandIndex int
+	CommandTerm  int
 }
 
 //
@@ -95,6 +94,25 @@ type Raft struct {
 	nextIndex     []int
 	matchIndex    []int
 	electionTimer *time.Timer
+
+	lastIncludedIdx  int
+	lastIncludedTerm int
+}
+
+// Invoke with lock!
+func (rf *Raft) GetLastLogIdx() int {
+	if len(rf.log) > 0 {
+		return rf.log[len(rf.log)-1].Index
+	}
+	return rf.lastIncludedIdx
+}
+
+// Invoke with lock!
+func (rf *Raft) GetLastLogTerm() int {
+	if len(rf.log) > 0 {
+		return rf.log[len(rf.log)-1].Term
+	}
+	return rf.lastIncludedTerm
 }
 
 func (rf *Raft) PrintLogs() string {
@@ -118,17 +136,22 @@ func (rf *Raft) FetchLogByIdx(index int) *LogEntry {
 		return nil
 	}
 	localIdx := rf.GetLocalIdx(index)
-	if localIdx >= len(rf.log) {
+	if localIdx >= len(rf.log) || localIdx < 0 {
+		// TODO: localIdx < 0 may happen in case of snapshot
 		return nil
 	}
 	return rf.log[localIdx]
 }
 
-func (rf *Raft) TrimLog(index int) {
+// @Const
+func (rf *Raft) FetchLogContent(index int) interface{} {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	idx := rf.GetLocalIdx(index)
-	rf.log = rf.log[idx:]
+	log := rf.FetchLogByIdx(index)
+	if log == nil {
+		return nil
+	}
+	return log.Content
 }
 
 func (rf *Raft) RaftStateSize() int {
@@ -177,6 +200,24 @@ func (rf *Raft) persist() {
 	rf.persister.SaveRaftState(data)
 }
 
+// Trim log at index and all logs before
+func (rf *Raft) DoSnapshot(index int, raw []byte) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	localIdx := rf.GetLocalIdx(index)
+	rf.log = rf.log[localIdx+1:]
+
+	w0 := new(bytes.Buffer)
+	e0 := labgob.NewEncoder(w0)
+	e0.Encode(rf.currentTerm)
+	e0.Encode(rf.votedFor)
+	e0.Encode(rf.log)
+	state := w0.Bytes()
+
+	rf.persister.SaveStateAndSnapshot(state, raw)
+}
+
 //
 // restore previously persisted state.
 //
@@ -222,17 +263,33 @@ func (rf *Raft) readPersist(data []byte) {
 	DPrintf("[PER] %v(%v) recovers with log %v", rf.me, rf.currentTerm, rf.PrintLogs())
 }
 
-// Return value: data, lastIncludedIdx, lastIncludedTerm
-func readSnapshot(data []byte) (map[string]string, int, int) {
+// Return value: data, nextSeq, lastIncludedIdx, lastIncludedTerm
+func (rf *Raft) ReadSnapshot() (map[string]string, map[int64]int, int, int) {
+	data := rf.persister.ReadSnapshot()
 	if data == nil || len(data) < 1 {
-		return nil, -1, -1
+		return nil, nil, -1, -1
 	}
+
 	r := bytes.NewBuffer(data)
 	d := labgob.NewDecoder(r)
 	var snapMap map[string]string
-	d.Decode(&snapMap)
-	// TODO
-	return snapMap, 1, 1
+	var seqMap map[int64]int
+
+	if d.Decode(&snapMap) != nil {
+		fmt.Println("Decode snapshot data error")
+	}
+	if d.Decode(&seqMap) != nil {
+		fmt.Println("Decode seqMap error")
+	}
+	if d.Decode(&rf.lastIncludedIdx) != nil {
+		fmt.Println("Decode lastIncludedIdx error")
+	}
+	if d.Decode(&rf.lastIncludedTerm) != nil {
+		fmt.Println("Decode lastIncludedTerm error")
+	}
+	DPrintf("[PER] %v(%v) read snapshot with data=%v, nextSeq=%v",
+		rf.me, rf.currentTerm, snapMap, seqMap)
+	return snapMap, seqMap, -1, -1
 }
 
 type LogEntry struct {
@@ -299,9 +356,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 
 	// Up-to-date or not?
 	if len(rf.log) > 0 {
-		lastLog := rf.log[len(rf.log)-1]
-		if args.LastLogTerm < lastLog.Term ||
-			(args.LastLogTerm == lastLog.Term && args.LastLogIndex < lastLog.Index) {
+		if args.LastLogTerm < rf.GetLastLogTerm() ||
+			(args.LastLogTerm == rf.GetLastLogTerm() && args.LastLogIndex < rf.GetLastLogIdx()) {
 			// Not up-to-date
 			reply.VoteGranted = false
 			reply.Term = rf.currentTerm
@@ -415,15 +471,15 @@ func (rf *Raft) FollowerShooter(id int) {
 			LeaderCommit: rf.commitIndex,
 			PrevLogIndex: rf.nextIndex[id] - 1,
 		}
-		if args.PrevLogIndex > rf.log[len(rf.log)-1].Index {
+		if args.PrevLogIndex > rf.GetLastLogIdx() {
 			DPrintf("[ERROR] prevLogIndex(%v) out of log range(%v) to follower %v from leader %v(%v)",
-				args.PrevLogIndex, rf.log[len(rf.log)-1].Index, id, rf.me, rf.currentTerm)
+				args.PrevLogIndex, rf.GetLastLogIdx(), id, rf.me, rf.currentTerm)
 		}
 		if args.PrevLogIndex >= 1 {
-			args.PrevLogTerm = rf.log[args.PrevLogIndex].Term
+			args.PrevLogTerm = rf.FetchLogByIdx(args.PrevLogIndex).Term
 		}
 
-		lastLogIdx := rf.log[len(rf.log)-1].Index
+		lastLogIdx := rf.GetLastLogIdx()
 		if lastLogIdx >= rf.nextIndex[id] {
 			for i := rf.nextIndex[id]; i <= lastLogIdx; i++ {
 				logAtI := rf.FetchLogByIdx(i)
@@ -465,10 +521,10 @@ func (rf *Raft) ElectionRunner() {
 		args := &RequestVoteArgs{
 			Term:         rf.currentTerm,
 			CandidateId:  rf.me,
-			LastLogIndex: rf.log[len(rf.log)-1].Index,
+			LastLogIndex: rf.GetLastLogIdx(),
 		}
 		if args.LastLogIndex > 0 {
-			args.LastLogTerm = rf.log[len(rf.log)-1].Term
+			args.LastLogTerm = rf.GetLastLogTerm()
 		}
 		reply := &RequestVoteReply{}
 		go rf.sendRequestVote(i, args, reply)
@@ -492,7 +548,7 @@ func (rf *Raft) ElectionRunner() {
 		rf.state = LEADER
 		rf.electionTimer.Stop()
 		for i := 0; i < len(rf.peers); i++ {
-			rf.nextIndex[i] = rf.log[len(rf.log)-1].Index + 1
+			rf.nextIndex[i] = rf.GetLastLogIdx() + 1
 			rf.matchIndex[i] = 0
 		}
 		go rf.HeartbeatShooter()
@@ -552,7 +608,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			if log != nil {
 				// Conflict prevLogTerm!
 				reply.ConflictIdx = args.PrevLogIndex
-				reply.ConflictTerm = rf.log[args.PrevLogIndex].Term
+				reply.ConflictTerm = rf.FetchLogByIdx(args.PrevLogIndex).Term
 				for k := reply.ConflictIdx; k >= 0; k-- {
 					if rf.FetchLogByIdx(k).Term == reply.ConflictTerm {
 						reply.ConflictIdx = k
@@ -562,7 +618,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				}
 			} else {
 				// Some logs are missing
-				reply.ConflictIdx = rf.log[len(rf.log)-1].Index + 1
+				reply.ConflictIdx = rf.GetLastLogIdx() + 1
 			}
 			reply.Reason = LOG_INCONSISTENCY
 			DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons, conflictIdx=%v, my log=%v\n",
@@ -573,13 +629,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	i := 0                         // index of recved log array
 	myPtr := args.PrevLogIndex + 1 // Index of the log array of this server
-	for myPtr <= rf.log[len(rf.log)-1].Index && i < len(args.Entries) &&
+	for myPtr <= rf.GetLastLogIdx() && i < len(args.Entries) &&
 		args.Entries[i].Term == rf.FetchLogByIdx(myPtr).Term {
 		i++
 		myPtr++
 	}
 	// Three cases:
-	if myPtr > rf.log[len(rf.log)-1].Index {
+	if myPtr > rf.GetLastLogIdx() {
 		// 1. Normal - just append new entries
 		rf.log = append(rf.log, args.Entries[i:]...)
 		// 2. Recv entries are outdated
@@ -588,7 +644,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	} else if args.Entries[i].Term != rf.FetchLogByIdx(myPtr).Term {
 		// 3. confliction
 		DPrintf("[AppEnt] %v(%v) conflict: id,t=<%v,%v> covered by <%v,%v> from %v(%v)\n",
-			rf.me, rf.currentTerm, myPtr, rf.log[myPtr].Term,
+			rf.me, rf.currentTerm, myPtr, rf.FetchLogByIdx(myPtr).Term,
 			myPtr, args.Entries[i].Term, args.LeaderId, args.Term)
 		localIdx := rf.GetLocalIdx(myPtr)
 		rf.log = rf.log[:localIdx]
@@ -598,10 +654,10 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	if args.LeaderCommit > rf.commitIndex {
-		if args.LeaderCommit < rf.log[len(rf.log)-1].Index {
+		if args.LeaderCommit < rf.GetLastLogIdx() {
 			rf.commitIndex = args.LeaderCommit
 		} else {
-			rf.commitIndex = rf.log[len(rf.log)-1].Index
+			rf.commitIndex = rf.GetLastLogIdx()
 		}
 	}
 
@@ -702,7 +758,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	lastIndex := 0
 	if len(rf.log) > 0 {
-		lastIndex = rf.log[len(rf.log)-1].Index
+		lastIndex = rf.GetLastLogIdx()
 	}
 
 	newLogEntryPtr := &LogEntry{
@@ -758,9 +814,10 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 			DPrintf("P0: newIdx=%v, len=%v, lastApplied=%v, cmtIdx=%v\n", newIdx,
 				len(rf.log), rf.lastApplied, rf.commitIndex)
 			msg := ApplyMsg{
-				Command:      rf.log[newIdx].Content,
+				Command:      rf.FetchLogByIdx(newIdx).Content,
 				CommandValid: true,
 				CommandIndex: newIdx,
+				CommandTerm:  rf.FetchLogByIdx(newIdx).Term,
 			}
 			applyCh <- msg
 			rf.mu.Lock()
@@ -803,26 +860,13 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	}
 	rf.cond = sync.NewCond(&rf.mu)
 
-	// Restore snapshot
-	if len(persister.snapshot) != 0 {
-		snapMap, lastIncludedIdx, lastIncludedTerm := readSnapshot(persister.ReadSnapshot())
-		snapMsg := ApplyMsg{
-			CommandValid:     false,
-			Command:          snapMap,
-			CommandIndex:     -1,
-			LastIncludedIdx:  lastIncludedIdx,
-			LastIncludedTerm: lastIncludedTerm,
-		}
-		applyCh <- snapMsg
-	}
-
 	rf.log = append(rf.log, &LogEntry{
 		Index:   0,
 		Term:    -1,
 		Content: nil,
 	})
 	for i := 0; i < len(peers); i++ {
-		rf.nextIndex[i] = rf.log[len(rf.log)-1].Index + 1
+		rf.nextIndex[i] = rf.GetLastLogIdx() + 1
 		rf.matchIndex[i] = 0
 	}
 

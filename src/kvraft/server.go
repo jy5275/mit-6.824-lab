@@ -1,6 +1,8 @@
 package kvraft
 
 import (
+	"bytes"
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -34,7 +36,6 @@ type Op struct {
 	OpType int
 	Key    string
 	Value  string
-	Data   map[string]string
 	CliID  int64
 	Seq    int
 }
@@ -45,12 +46,13 @@ func (op *Op) IsEqual(op2 *Op) bool {
 
 type Snapshot struct {
 	Data             map[string]string
+	NextSeq          map[int64]int
 	LastIncludedIdx  int
 	LastIncludedTerm int
 }
 
 type KVServer struct {
-	mu      sync.Mutex
+	mu      sync.Mutex // Cannot wait kv.mu while holding rf.mu!!!
 	cond    *sync.Cond
 	me      int
 	rf      *raft.Raft
@@ -60,9 +62,23 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
-	data        map[string]string
-	appliedLogs []*Op
-	nextSeq     map[int64]int
+	data    map[string]string
+	nextSeq map[int64]int
+
+	lastAppliedIndex int
+	lastIncludedTerm int
+}
+
+// Invoke with kv.mu holding
+func (kv *KVServer) DoSnapshot() {
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(kv.data)
+	e.Encode(kv.nextSeq)
+	e.Encode(kv.lastAppliedIndex)
+	e.Encode(kv.lastIncludedTerm)
+	snapRaw := w.Bytes()
+	kv.rf.DoSnapshot(kv.lastAppliedIndex, snapRaw)
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
@@ -93,25 +109,34 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 			reply.Err = ErrWrongLeader
 			return
 		}
-		if len(kv.appliedLogs) >= idx {
-			// Log at idx has been applied
-			// Client op must has succeed or failed.
-			if kv.appliedLogs[idx-1].IsEqual(&op) {
-				// success
-				reply.Err = OK
-				reply.Value = kv.data[args.Key]
+
+		log := kv.rf.FetchLogContent(idx)
+		if kv.lastAppliedIndex >= idx && log != nil {
+			if realLog, ok := log.(Op); ok {
+				// Log at idx has been applied
+				// Client op must has succeed or failed.
+				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
+					// Success
+					reply.Err = OK
+					reply.Value = kv.data[args.Key]
+				} else {
+					// Fail
+					reply.Err = ErrWrongLeader
+				}
 			} else {
-				reply.Err = ErrWrongLeader
+				fmt.Println("Error ret type of FetchLogContent")
 			}
 			break
 		}
+
 		kv.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
 		// kv.cond.Wait()
 	}
 	if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
-
+		// TODO: Do snapshot
+		kv.DoSnapshot()
 	}
 }
 
@@ -148,19 +173,31 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			reply.Err = ErrWrongLeader
 			return
 		}
-		if len(kv.appliedLogs) >= idx {
-			if kv.appliedLogs[idx-1].IsEqual(&op) {
-				// success
-				reply.Err = OK
+
+		log := kv.rf.FetchLogContent(idx)
+		if kv.lastAppliedIndex >= idx && log != nil {
+			if realLog, ok := log.(Op); ok {
+				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
+					// Success
+					reply.Err = OK
+				} else {
+					// Fail
+					reply.Err = ErrWrongLeader
+				}
 			} else {
-				reply.Err = ErrWrongLeader
+				fmt.Println("Error ret type of FetchLogContent")
 			}
 			break
 		}
+
 		kv.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
 		// kv.cond.Wait()
+	}
+	if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
+		// TODO: Do snapshot
+		kv.DoSnapshot()
 	}
 }
 
@@ -199,23 +236,20 @@ func (kv *KVServer) ApplyChListener() {
 					applyMsgOp.CliID, kv.nextSeq[applyMsgOp.CliID])
 			} else {
 				kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
+				key := applyMsgOp.Key
+				val := applyMsgOp.Value
 				if applyMsgOp.OpType == PUT {
-					key := applyMsgOp.Key
-					val := applyMsgOp.Value
 					kv.data[key] = val
 				} else if applyMsgOp.OpType == APPEND {
-					key := applyMsgOp.Key
-					val := applyMsgOp.Value
 					kv.data[key] += val
 				}
 			}
 			DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
-			kv.appliedLogs = append(kv.appliedLogs, &applyMsgOp)
+			kv.lastAppliedIndex = newMsg.CommandIndex
+			kv.lastIncludedTerm = newMsg.CommandTerm
 			kv.cond.Broadcast()
 		} else {
-			// Restore snapshot. Should only occur at the beginning
-			snapMap, _ := newMsg.Command.(map[string]string)
-			kv.data = snapMap
+			fmt.Println("Error6824")
 		}
 		kv.mu.Unlock()
 	}
@@ -253,6 +287,15 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	// You may need initialization code here.
+	dataMap, seqMap, _, _ := kv.rf.ReadSnapshot()
+	// Deep copy
+	for k, v := range dataMap {
+		kv.data[k] = v
+	}
+	for k, v := range seqMap {
+		kv.nextSeq[k] = v
+	}
+
 	DPrintf("Server %v started...\n", kv.me)
 	go kv.ApplyChListener()
 
