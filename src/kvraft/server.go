@@ -29,6 +29,84 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+type SeqArray struct {
+	mu       sync.Mutex
+	Data     []int
+	StartIdx int
+}
+
+func (sa *SeqArray) Witness(v int) {
+	sa.mu.Lock()
+	defer sa.mu.Unlock()
+	nextIdx := sa.StartIdx + len(sa.Data)
+	if v > nextIdx {
+		for i := nextIdx; i < v; i++ {
+			sa.Data = append(sa.Data, -i)
+		}
+		sa.Data = append(sa.Data, v)
+	} else if v < nextIdx {
+		localIdx := v - sa.StartIdx
+		if localIdx < 0 {
+			fmt.Printf("localIdx < 0, v=%v, startIdx=%v, arr=%v\n", v, sa.StartIdx, sa.Data)
+			panic("localIdx < 0")
+		}
+		sa.Data[localIdx] = -sa.Data[localIdx]
+	} else {
+		sa.Data = append(sa.Data, v)
+	}
+}
+
+func (sa *SeqArray) Pop() int {
+	sa.mu.Lock()
+	defer sa.mu.Unlock()
+	if len(sa.Data) == 0 {
+		return sa.StartIdx - 1
+	}
+	for i := 0; i < len(sa.Data); i++ {
+		if sa.Data[i] < 0 {
+			if i == 0 { // Unwitnessed logs in the front
+				return sa.StartIdx - 1
+			} else { // Unwitnessed logs
+				maxWit := sa.Data[i-1]
+				sa.StartIdx = -sa.Data[i]
+				sa.Data = sa.Data[i:]
+				return maxWit
+			}
+		}
+	}
+	sa.StartIdx = sa.Data[len(sa.Data)-1] + 1
+	sa.Data = []int{}
+	return sa.StartIdx - 1
+}
+
+type SleepCounter struct {
+	mu     sync.Mutex
+	SleepN map[int]bool
+}
+
+func (sc *SleepCounter) CheckSleep(v int) bool {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	for k, _ := range sc.SleepN {
+		if k <= v {
+			return false
+		}
+	}
+	return true
+}
+
+func (sc *SleepCounter) Add(v int) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.SleepN[v] = true
+}
+
+func (sc *SleepCounter) Sub(v int) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	delete(sc.SleepN, v)
+}
+
 type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
@@ -44,13 +122,6 @@ func (op *Op) IsEqual(op2 *Op) bool {
 	return op.CliID == op2.CliID && op.Seq == op2.Seq
 }
 
-type Snapshot struct {
-	Data             map[string]string
-	NextSeq          map[int64]int
-	LastIncludedIdx  int
-	LastIncludedTerm int
-}
-
 type KVServer struct {
 	mu      sync.Mutex // Cannot wait kv.mu while holding rf.mu!!!
 	cond    *sync.Cond
@@ -64,9 +135,12 @@ type KVServer struct {
 	// Your definitions here.
 	data    map[string]string
 	nextSeq map[int64]int
+	witness *SeqArray
 
-	lastAppliedIndex int
-	lastIncludedTerm int
+	lastAppliedIndex  int
+	lastIncludedIndex int
+	// sleepN            int
+	sleepCnt *SleepCounter
 }
 
 // Invoke with kv.mu holding
@@ -75,10 +149,14 @@ func (kv *KVServer) DoSnapshot() {
 	e := labgob.NewEncoder(w)
 	e.Encode(kv.data)
 	e.Encode(kv.nextSeq)
-	e.Encode(kv.lastAppliedIndex)
-	e.Encode(kv.lastIncludedTerm)
+	for !kv.sleepCnt.CheckSleep(kv.lastAppliedIndex) {
+		// Should wait until handler routines all wake up!
+		kv.cond.Wait()
+	}
+	kv.lastIncludedIndex = kv.lastAppliedIndex
+	e.Encode(kv.lastIncludedIndex)
 	snapRaw := w.Bytes()
-	kv.rf.DoSnapshot(kv.lastAppliedIndex, snapRaw)
+	kv.rf.DoSnapshot(kv.lastIncludedIndex, snapRaw)
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
@@ -96,17 +174,20 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	idx, initTerm, isLeader := kv.rf.Start(op)
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		DPrintf("%v is not leader\n", kv.me)
+		DPrintf("[KV] %v is not leader\n", kv.me)
 		return
 	}
-	DPrintf("Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+	DPrintf("[KV] Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
 		idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
 
 	// Keep watching until this log is appied
+	kv.sleepCnt.Add(idx)
 	for !kv.killed() {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
+			kv.sleepCnt.Sub(idx)
+			kv.cond.Broadcast()
 			return
 		}
 
@@ -134,10 +215,8 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		kv.mu.Lock()
 		// kv.cond.Wait()
 	}
-	if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
-		// TODO: Do snapshot
-		kv.DoSnapshot()
-	}
+	kv.sleepCnt.Sub(idx)
+	kv.cond.Broadcast()
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
@@ -160,17 +239,20 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	idx, initTerm, isLeader := kv.rf.Start(op)
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		DPrintf("%v is not leader\n", kv.me)
+		DPrintf("[KV] %v is not leader\n", kv.me)
 		return
 	}
-	DPrintf("PA cmd{log=%v, type=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+	DPrintf("[KV] PA cmd{log=%v, type=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
 		idx, op.OpType, op.Key, op.Value, args.Seq, kv.me, args.CliID)
 
 	// Keep watching until this log is appied in kv.rf.logs
+	kv.sleepCnt.Add(idx)
 	for !kv.killed() {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
+			kv.sleepCnt.Sub(idx)
+			kv.cond.Broadcast()
 			return
 		}
 
@@ -195,10 +277,8 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		kv.mu.Lock()
 		// kv.cond.Wait()
 	}
-	if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
-		// TODO: Do snapshot
-		kv.DoSnapshot()
-	}
+	kv.sleepCnt.Sub(idx)
+	kv.cond.Broadcast()
 }
 
 //
@@ -229,11 +309,8 @@ func (kv *KVServer) ApplyChListener() {
 
 		if applyMsgOp, ok := newMsg.Command.(Op); ok {
 			// A normal log entry
-			// Dup detection: just ignore dup cmd in rf.log
 			if applyMsgOp.Seq < kv.nextSeq[applyMsgOp.CliID] {
-				DPrintf("Dup cmd(type=%v) from cli %v, recv seq=%v, nextSeq[%v]=%v\n",
-					applyMsgOp.OpType, applyMsgOp.CliID, applyMsgOp.Seq,
-					applyMsgOp.CliID, kv.nextSeq[applyMsgOp.CliID])
+				// Dup detection: just ignore dup cmd in rf.log
 			} else {
 				kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
 				key := applyMsgOp.Key
@@ -246,10 +323,23 @@ func (kv *KVServer) ApplyChListener() {
 			}
 			DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
 			kv.lastAppliedIndex = newMsg.CommandIndex
-			kv.lastIncludedTerm = newMsg.CommandTerm
 			kv.cond.Broadcast()
+		} else if snapMsg, ok := newMsg.Command.(raft.Snapshot); ok {
+			// Snapshot cmd
+			kv.data = snapMsg.Data
+			kv.nextSeq = snapMsg.NextSeq
+			kv.lastAppliedIndex = snapMsg.LastIncludedIdx
+			DPrintf("Server %v applied snapshot, lastIncIdx=%v\n",
+				kv.me, snapMsg.LastIncludedIdx)
 		} else {
-			fmt.Println("Error6824")
+			fmt.Printf("Error: illegal msg type(%v)\n", newMsg.Command)
+		}
+
+		// Optionnally do snapshot
+		if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
+			DPrintf("[KV] Server %v snapshot with %v logs and size %v\n",
+				kv.me, kv.lastAppliedIndex, kv.rf.RaftStateSize())
+			kv.DoSnapshot()
 		}
 		kv.mu.Unlock()
 	}
@@ -274,17 +364,20 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	// Go's RPC library to marshall/unmarshall.
 	labgob.Register(Op{})
 
-	kv := new(KVServer)
-	kv.me = me
-	kv.maxraftstate = maxraftstate
-	kv.cond = sync.NewCond(&kv.mu)
-	kv.data = make(map[string]string)
-	kv.nextSeq = make(map[int64]int)
+	kv := &KVServer{
+		me:           me,
+		maxraftstate: maxraftstate,
+		data:         make(map[string]string),
+		nextSeq:      make(map[int64]int),
+		applyCh:      make(chan raft.ApplyMsg),
+	}
 
 	// You may need initialization code here.
-
-	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.cond = sync.NewCond(&kv.mu)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
+	kv.sleepCnt = &SleepCounter{
+		SleepN: make(map[int]bool),
+	}
 
 	// You may need initialization code here.
 	dataMap, seqMap, _, _ := kv.rf.ReadSnapshot()
@@ -296,7 +389,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 		kv.nextSeq[k] = v
 	}
 
-	DPrintf("Server %v started...\n", kv.me)
+	DPrintf("Server %v started with maxraftstate=%v\n", kv.me, maxraftstate)
 	go kv.ApplyChListener()
 
 	return kv

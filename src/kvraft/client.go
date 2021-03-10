@@ -63,8 +63,6 @@ func (ck *Clerk) Get(key string) string {
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)
-		// DPrintf("Cli %v GET cmd(seq=%v) get err resp(%v), resend to server %v\n",
-		// 	ck.cliID, args.Seq, reply.Err, leaderId)
 	}
 	DPrintf("Cli %v get data: <%v, %v> ok\n", ck.cliID, key, reply.Value)
 	ck.seq++
@@ -103,8 +101,6 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)
-		// DPrintf("Cli %v PA cmd(seq=%v) get err resp(%v), resend to server %v\n",
-		// 	args.CliID, args.Seq, reply.Err, leaderId)
 	}
 	ck.seq++
 }

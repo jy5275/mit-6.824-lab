@@ -1,0 +1,843 @@
+2021/03/10 18:27:07 [SYS] Start ins 0
+2021/03/10 18:27:07 Server 0 started with maxraftstate=1000
+2021/03/10 18:27:07 [SYS] Start ins 1
+2021/03/10 18:27:07 Server 1 started with maxraftstate=1000
+2021/03/10 18:27:07 [SYS] Start ins 2
+2021/03/10 18:27:07 Server 2 started with maxraftstate=1000
+2021/03/10 18:27:07 [SYS] Start ins 3
+2021/03/10 18:27:07 Server 3 started with maxraftstate=1000
+2021/03/10 18:27:07 [SYS] Start ins 4
+2021/03/10 18:27:07 Server 4 started with maxraftstate=1000
+Test: unreliable net, snapshots, many clients (3B) ...
+
+2021/03/10 18:27:07 [ELECTION] Ins 1 won election(1) with 3 grants and logs <len=1, <nil>(Idx=0, Term=-1)>
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->4 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->2 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->3 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->0 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Put, k=4, v=} to server 1
+2021/03/10 18:27:07 [SYS] 2(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 0
+2021/03/10 18:27:07 [ELECTION] Ins 0(1) recv reqVote from 2(1), NOT due to voted
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 4
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Put, k=0, v=} to server 3
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 [->AppEnt] 2(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=1, <nil>(Idx=0, Term=-1)>
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 4
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 0
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Put, k=4, v=} to server 2
+2021/03/10 18:27:07 [->AppEnt] 0(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [ERR] Unknown decline reason of sendAppEnt 1(1)->3(0): 0
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 0
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 1
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [->AppEnt] 4(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 0], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [->AppEnt] 4(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=1, <nil>(Idx=0, Term=-1)>
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Put, k=0, v=} to server 4
+2021/03/10 18:27:07 [->AppEnt] 0(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=1, <nil>(Idx=0, Term=-1)>
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 1
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=1, val={1 0  93602 0}, <len=2, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=1, type=1, <0, >, seq=0} ok, leader=1, from cli 93602
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Put, k=4, v=} to server 3
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 2
+2021/03/10 18:27:07 [ELECTION] Ins 3 timeout
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=2, val={1 3  87201 0}, <len=3, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1)>
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 1
+2021/03/10 18:27:07 [KV] PA cmd{log=2, type=1, <3, >, seq=0} ok, leader=1, from cli 87201
+2021/03/10 18:27:07 3 start an election!
+2021/03/10 18:27:07 [ELECTION] Ins 3(5) send reqVote to 4
+2021/03/10 18:27:07 [ELECTION] Ins 3(5) send reqVote to 0
+2021/03/10 18:27:07 [ELECTION] Ins 3(5) send reqVote to 2
+2021/03/10 18:27:07 [ELECTION] Ins 3(5) send reqVote to 1
+2021/03/10 18:27:07 [SYS] 2(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=3, val={1 4  47984 0}, <len=4, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=3, type=1, <4, >, seq=0} ok, leader=1, from cli 47984
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 3
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 2
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 3
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 4
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=4, val={1 1  98145 0}, <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=4, type=1, <1, >, seq=0} ok, leader=1, from cli 98145
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 4
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->2 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->0 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->4 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->3 with args <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>; nextIdx=[1 1 1 1 1]
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 0
+2021/03/10 18:27:07 [->AppEnt] 4(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [->AppEnt] 0(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [->AppEnt] 0(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [->AppEnt] 4(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [->AppEnt] 3(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 4], LeaderCommit=0>, curLogLen=1, processing...
+2021/03/10 18:27:07 [->AppEnt] 3(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 1 with 3 replicas
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 2 with 3 replicas
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 3 with 3 replicas
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 4 with 3 replicas
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 1
+2021/03/10 18:27:07 [SYS] 1(1) applies log 1 ready, val={1 0  93602 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 1 ok, val={1 0  93602 0}, lastApplied=1, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 1(1) applies log 2 ready, val={1 3  87201 0}
+2021/03/10 18:27:07 Server 1 applied log 1: {1 0  93602 0}
+2021/03/10 18:27:07 Server 1 applied log 2: {1 3  87201 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 2 ok, val={1 3  87201 0}, lastApplied=2, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 1(1) applies log 3 ready, val={1 4  47984 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 3 ok, val={1 4  47984 0}, lastApplied=3, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 1(1) applies log 4 ready, val={1 1  98145 0}
+2021/03/10 18:27:07 Server 1 applied log 3: {1 4  47984 0}
+2021/03/10 18:27:07 Server 1 applied log 4: {1 1  98145 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 4 ok, val={1 1  98145 0}, lastApplied=4, cmtIdx=4
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 2
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=5, val={1 2  97896 0}, <len=6, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=5, type=1, <2, >, seq=0} ok, leader=1, from cli 97896
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Put, k=1, v=} to server 4 success, err=OK
+2021/03/10 18:27:07 Cli 98145 put data: <1, > ok
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 0 y} to server 4
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Put, k=0, v=} to server 4 success, err=OK
+2021/03/10 18:27:07 Cli 93602 put data: <0, > ok
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 4
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 2
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=6, val={2 1 x 1 0 y 98145 1}, <len=7, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=6, type=2, <1, x 1 0 y>, seq=1} ok, leader=1, from cli 98145
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->2 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>; nextIdx=[5 1 5 5 5]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->4 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>; nextIdx=[5 1 5 5 5]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->3 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>; nextIdx=[5 1 5 5 5]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->0 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>; nextIdx=[5 1 5 5 5]
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Put, k=4, v=} to server 3 success, err=OK
+2021/03/10 18:27:07 Cli 47984 put data: <4, > ok
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=7, val={2 0 x 0 0 y 93602 1}, <len=8, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=7, type=2, <0, x 0 0 y>, seq=1} ok, leader=1, from cli 93602
+2021/03/10 18:27:07 [ERR] Unknown decline reason of sendAppEnt 1(1)->3(0): 0
+2021/03/10 18:27:07 [SYS] 2(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [->AppEnt] 4(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>, curLogLen=5, processing...
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 [->AppEnt] 4(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=7, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1)>
+2021/03/10 18:27:07 [->AppEnt] 0(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>, curLogLen=5, processing...
+2021/03/10 18:27:07 [->AppEnt] 0(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=7, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1)>
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 5 with 3 replicas
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 3
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 6 with 3 replicas
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 4
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:07 [->AppEnt] 2(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 6], LeaderCommit=4>, curLogLen=5, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=7, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1)>
+2021/03/10 18:27:07 [ERR] Unknown decline reason of sendAppEnt 1(1)->2(0): 0
+2021/03/10 18:27:07 [SYS] 2(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 0
+2021/03/10 18:27:07 [SYS] 4(1) applies log 1 ready, val={1 0  93602 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 1 ready, val={1 0  93602 0}
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 1
+2021/03/10 18:27:07 Server 2 applied log 1: {1 0  93602 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 1 ready, val={1 0  93602 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 1 ok, val={1 0  93602 0}, lastApplied=1, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 0(1) applies log 2 ready, val={1 3  87201 0}
+2021/03/10 18:27:07 Server 0 applied log 1: {1 0  93602 0}
+2021/03/10 18:27:07 Server 0 applied log 2: {1 3  87201 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 2 ok, val={1 3  87201 0}, lastApplied=2, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 0(1) applies log 3 ready, val={1 4  47984 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 3 ok, val={1 4  47984 0}, lastApplied=3, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 0(1) applies log 4 ready, val={1 1  98145 0}
+2021/03/10 18:27:07 Server 0 applied log 3: {1 4  47984 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 5 ready, val={1 2  97896 0}
+2021/03/10 18:27:07 Server 4 applied log 1: {1 0  93602 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 1 ok, val={1 0  93602 0}, lastApplied=1, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 2(1) applies log 2 ready, val={1 3  87201 0}
+2021/03/10 18:27:07 Server 0 applied log 4: {1 1  98145 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 4 ok, val={1 1  98145 0}, lastApplied=4, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 4(1) applies log 1 ok, val={1 0  93602 0}, lastApplied=1, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 4(1) applies log 2 ready, val={1 3  87201 0}
+2021/03/10 18:27:07 Server 4 applied log 2: {1 3  87201 0}
+2021/03/10 18:27:07 [SYS] 4(1) applies log 2 ok, val={1 3  87201 0}, lastApplied=2, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 4(1) applies log 3 ready, val={1 4  47984 0}
+2021/03/10 18:27:07 [SYS] 4(1) applies log 3 ok, val={1 4  47984 0}, lastApplied=3, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 4(1) applies log 4 ready, val={1 1  98145 0}
+2021/03/10 18:27:07 Server 4 applied log 3: {1 4  47984 0}
+2021/03/10 18:27:07 Server 4 applied log 4: {1 1  98145 0}
+2021/03/10 18:27:07 [SYS] 4(1) applies log 4 ok, val={1 1  98145 0}, lastApplied=4, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 1(1) applies log 5 ok, val={1 2  97896 0}, lastApplied=5, cmtIdx=6
+2021/03/10 18:27:07 [SYS] 1(1) applies log 6 ready, val={2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 Server 1 applied log 5: {1 2  97896 0}
+2021/03/10 18:27:07 Server 1 applied log 6: {2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 6 ok, val={2 1 x 1 0 y 98145 1}, lastApplied=6, cmtIdx=6
+2021/03/10 18:27:07 Server 2 applied log 2: {1 3  87201 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 2 ok, val={1 3  87201 0}, lastApplied=2, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 2(1) applies log 3 ready, val={1 4  47984 0}
+2021/03/10 18:27:07 Server 2 applied log 3: {1 4  47984 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 3 ok, val={1 4  47984 0}, lastApplied=3, cmtIdx=4
+2021/03/10 18:27:07 [SYS] 2(1) applies log 4 ready, val={1 1  98145 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 4 ok, val={1 1  98145 0}, lastApplied=4, cmtIdx=4
+2021/03/10 18:27:07 Server 2 applied log 4: {1 1  98145 0}
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=8, val={1 3  87201 0}, <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 [KV] PA cmd{log=8, type=1, <3, >, seq=0} ok, leader=1, from cli 87201
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Put, k=2, v=} to server 2 success, err=OK
+2021/03/10 18:27:07 Cli 97896 put data: <2, > ok
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 2
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 3
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 0 y} to server 4 success, err=OK
+2021/03/10 18:27:07 Cli 98145 append data: <1, ...x 1 0 y> ok
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 4
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 2
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->2 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 8], LeaderCommit=6>; nextIdx=[7 1 5 5 7]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->0 with args <Term=1, LeaderId=1, PrevLogIdx=6, PrevLogTerm=1, Logs=(6, 8], LeaderCommit=6>; nextIdx=[7 1 5 5 7]
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->3 with args <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 8], LeaderCommit=6>; nextIdx=[7 1 5 5 7]
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 [AppEnt-->] 1(1)->4 with args <Term=1, LeaderId=1, PrevLogIdx=6, PrevLogTerm=1, Logs=(6, 8], LeaderCommit=6>; nextIdx=[7 1 5 5 7]
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 4
+2021/03/10 18:27:07 [SYS] 0(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 [->AppEnt] 0(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=6, PrevLogTerm=1, Logs=(6, 8], LeaderCommit=6>, curLogLen=7, processing...
+2021/03/10 18:27:07 [->AppEnt] 0(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=9, val={2 1 x 1 1 y 98145 2}, <len=10, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=9, type=2, <1, x 1 1 y>, seq=2} ok, leader=1, from cli 98145
+2021/03/10 18:27:07 [->AppEnt] 2(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 8], LeaderCommit=6>, curLogLen=7, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [ERR] Unknown decline reason of sendAppEnt 1(1)->0(0): 0
+2021/03/10 18:27:07 [ERR] Unknown decline reason of sendAppEnt 1(1)->3(0): 0
+2021/03/10 18:27:07 [SYS] 4(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=10, val={2 4 x 4 0 y 47984 1}, <len=11, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1)>
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 [->AppEnt] 4(1) recv AppEnt: <Term=1, LeaderId=1, PrevLogIdx=6, PrevLogTerm=1, Logs=(6, 8], LeaderCommit=6>, curLogLen=7, processing...
+2021/03/10 18:27:07 [KV] PA cmd{log=10, type=2, <4, x 4 0 y>, seq=1} ok, leader=1, from cli 47984
+2021/03/10 18:27:07 [->AppEnt] 4(1) reply ok to AppEnt recv from 1(1): <Term=1, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 7 with 3 replicas
+2021/03/10 18:27:07 [AppEnt===>] 1(1) commits log 8 with 3 replicas
+2021/03/10 18:27:07 [SYS] 3(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 1
+2021/03/10 18:27:07 [SYS] 0(1) applies log 5 ready, val={1 2  97896 0}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 5 ok, val={1 2  97896 0}, lastApplied=5, cmtIdx=6
+2021/03/10 18:27:07 [SYS] 2(1) applies log 5 ready, val={1 2  97896 0}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 5 ok, val={1 2  97896 0}, lastApplied=5, cmtIdx=6
+2021/03/10 18:27:07 [SYS] 2(1) applies log 6 ready, val={2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 Server 2 applied log 5: {1 2  97896 0}
+2021/03/10 18:27:07 Server 2 applied log 6: {2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 [SYS] 2(1) applies log 6 ok, val={2 1 x 1 0 y 98145 1}, lastApplied=6, cmtIdx=6
+2021/03/10 18:27:07 [SYS] 4(1) applies log 5 ready, val={1 2  97896 0}
+2021/03/10 18:27:07 [SYS] 4(1) applies log 5 ok, val={1 2  97896 0}, lastApplied=5, cmtIdx=6
+2021/03/10 18:27:07 [SYS] 4(1) applies log 6 ready, val={2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 Server 4 applied log 5: {1 2  97896 0}
+2021/03/10 18:27:07 [SYS] 2(1) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] 0(1) applies log 6 ready, val={2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 Server 0 applied log 5: {1 2  97896 0}
+2021/03/10 18:27:07 Server 0 applied log 6: {2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 [SYS] 0(1) applies log 6 ok, val={2 1 x 1 0 y 98145 1}, lastApplied=6, cmtIdx=6
+2021/03/10 18:27:07 Server 4 applied log 6: {2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:07 [SYS] 4(1) applies log 6 ok, val={2 1 x 1 0 y 98145 1}, lastApplied=6, cmtIdx=6
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 2
+2021/03/10 18:27:07 [SYS] 1(1) applies log 7 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 7 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=7, cmtIdx=8
+2021/03/10 18:27:07 [SYS] 1(1) applies log 8 ready, val={1 3  87201 0}
+2021/03/10 18:27:07 Server 1 applied log 7: {2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:07 Server 1 applied log 8: {1 3  87201 0}
+2021/03/10 18:27:07 [SYS] 1(1) applies log 8 ok, val={1 3  87201 0}, lastApplied=8, cmtIdx=8
+2021/03/10 18:27:07 Cli 87201 send PA cmd{op=Put, k=3, v=} to server 1 success, err=OK
+2021/03/10 18:27:07 Cli 87201 put data: <3, > ok
+2021/03/10 18:27:07 Cli 87201 send GET cmd{k=87201} to server 1
+2021/03/10 18:27:07 [ELECTION] Ins 3 timeout
+2021/03/10 18:27:07 3 start an election!
+2021/03/10 18:27:07 [ELECTION] Ins 3(2) send reqVote to 4
+2021/03/10 18:27:07 [ELECTION] Ins 3(2) send reqVote to 0
+2021/03/10 18:27:07 [ELECTION] Ins 3(2) send reqVote to 1
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=11, val={2 2 x 2 0 y 97896 1}, <len=12, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1)>
+2021/03/10 18:27:07 [KV] PA cmd{log=11, type=2, <2, x 2 0 y>, seq=1} ok, leader=1, from cli 97896
+2021/03/10 18:27:07 [ELECTION] Ins 3(2) send reqVote to 2
+2021/03/10 18:27:07 [SYS] New cmd 1(1) recv at idx=12, val={0 3  87201 1}, <len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:07 [KV] Get cmd{log=12, <3, >, seq=1} ok, leader=1, from cli 87201
+2021/03/10 18:27:07 [ELECTION] Ins 2(2) recv reqVote from 3(2), NOT, recv <t,id>=<1,4>, my log: <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [ELECTION] Ins 1(2) recv reqVote from 3(2), NOT, recv <t,id>=<1,4>, my log: <len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 0
+2021/03/10 18:27:07 [ELECTION] Ins 4(2) recv reqVote from 3(2), NOT, recv <t,id>=<1,4>, my log: <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [ELECTION] Ins 0(2) recv reqVote from 3(2), NOT, recv <t,id>=<1,4>, my log: <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 0
+2021/03/10 18:27:07 Cli 87201 send GET cmd{k=87201} to server 2
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:07 [SYS] 4(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 1
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 3
+2021/03/10 18:27:07 [SYS] 2(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:07 [SYS] 0(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 1
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 2
+2021/03/10 18:27:07 [SYS] 2(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] 0(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 4
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 87201 send GET cmd{k=87201} to server 3
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 2
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:07 [SYS] 4(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 [SYS] 3(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [SYS] 2(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 3
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 3
+2021/03/10 18:27:07 [SYS] 4(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 87201 send GET cmd{k=87201} to server 4
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0
+2021/03/10 18:27:07 [SYS] 3(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [SYS] 3(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 4
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 1
+2021/03/10 18:27:07 [ELECTION] Ins 0 timeout
+2021/03/10 18:27:07 0 start an election!
+2021/03/10 18:27:07 [SYS] 3(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [ELECTION] Ins 0(3) send reqVote to 4
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 [ELECTION] Ins 0(3) send reqVote to 1
+2021/03/10 18:27:07 [ELECTION] Ins 0(3) send reqVote to 2
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 2
+2021/03/10 18:27:07 [ELECTION] Ins 0(3) send reqVote to 3
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 4
+2021/03/10 18:27:07 [SYS] 3(2) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 3 is not leader
+2021/03/10 18:27:07 Cli 87201 send GET cmd{k=87201} to server 0
+2021/03/10 18:27:07 [SYS] 0(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [ELECTION] Ins 1(3) recv reqVote from 0(3), NOT, recv <t,id>=<1,8>, my log: <len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:07 [KV] 0 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:07 [ELECTION] Ins 2(3) recv reqVote from 0, granted. My log: <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [ELECTION] Ins 4(3) recv reqVote from 0, granted. My log: <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [SYS] 1(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [ELECTION] Ins 3(3) recv reqVote from 0, granted. My log: <len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:07 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 1 is not leader
+2021/03/10 18:27:07 [ELECTION] Ins 0 won election(3) with 3 grants and logs <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [KV] 2 is not leader
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 0
+2021/03/10 18:27:07 [AppEnt-->] 0(3)->4 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>; nextIdx=[9 9 9 9 9]
+2021/03/10 18:27:07 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 2
+2021/03/10 18:27:07 [AppEnt-->] 0(3)->2 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>; nextIdx=[9 9 9 9 9]
+2021/03/10 18:27:07 [AppEnt-->] 0(3)->3 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>; nextIdx=[9 9 9 9 9]
+2021/03/10 18:27:07 [AppEnt-->] 0(3)->1 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>; nextIdx=[9 9 9 9 9]
+2021/03/10 18:27:07 [SYS] 1(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [SYS] 4(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 4 is not leader
+2021/03/10 18:27:07 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 1
+2021/03/10 18:27:07 [KV] 1 is not leader
+2021/03/10 18:27:07 [SYS] New cmd 0(3) recv at idx=9, val={0 3  87201 1}, <len=10, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3)>
+2021/03/10 18:27:07 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 0
+2021/03/10 18:27:07 [KV] Get cmd{log=9, <3, >, seq=1} ok, leader=0, from cli 87201
+2021/03/10 18:27:07 [->AppEnt] 2(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>, curLogLen=9, processing...
+2021/03/10 18:27:07 [->AppEnt] 2(3) reply ok to AppEnt recv from 0(3): <Term=3, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:07 [SYS] 1(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:07 [KV] 1 is not leader
+2021/03/10 18:27:07 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:08 [ERR] Unknown decline reason of sendAppEnt 0(3)->1(0): 0
+2021/03/10 18:27:08 [->AppEnt] 3(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>, curLogLen=5, processing...
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [->AppEnt] 3(3) decline AppEnt from 0(3) due to incons, conflictIdx=5, my log=<len=5, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1)>
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:08 [SYS] 1(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [AppEnt===>] 3(3) is inconsistent with 0 in prev log 5
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 [->AppEnt] 4(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 8], LeaderCommit=6>, curLogLen=9, processing...
+2021/03/10 18:27:08 [->AppEnt] 4(3) reply ok to AppEnt recv from 0(3): <Term=3, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=9, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1)>
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 3
+2021/03/10 18:27:08 [SYS] 4(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:08 [SYS] New cmd 0(3) recv at idx=10, val={2 1 x 1 1 y 98145 2}, <len=11, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3)>
+2021/03/10 18:27:08 [KV] PA cmd{log=10, type=2, <1, x 1 1 y>, seq=2} ok, leader=0, from cli 98145
+2021/03/10 18:27:08 [SYS] New cmd 0(3) recv at idx=11, val={2 0 x 0 0 y 93602 1}, <len=12, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3)>
+2021/03/10 18:27:08 [KV] PA cmd{log=11, type=2, <0, x 0 0 y>, seq=1} ok, leader=0, from cli 93602
+2021/03/10 18:27:08 [SYS] 3(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 2
+2021/03/10 18:27:08 [SYS] New cmd 0(3) recv at idx=12, val={2 2 x 2 0 y 97896 1}, <len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3)>
+2021/03/10 18:27:08 [KV] PA cmd{log=12, type=2, <2, x 2 0 y>, seq=1} ok, leader=0, from cli 97896
+2021/03/10 18:27:08 [SYS] New cmd 0(3) recv at idx=13, val={2 4 x 4 0 y 47984 1}, <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [KV] PA cmd{log=13, type=2, <4, x 4 0 y>, seq=1} ok, leader=0, from cli 47984
+2021/03/10 18:27:08 [AppEnt-->] 0(3)->3 with args <Term=3, LeaderId=0, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 13], LeaderCommit=6>; nextIdx=[9 9 9 5 9]
+2021/03/10 18:27:08 [AppEnt-->] 0(3)->1 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>; nextIdx=[9 9 9 5 9]
+2021/03/10 18:27:08 [AppEnt-->] 0(3)->2 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>; nextIdx=[9 9 9 5 9]
+2021/03/10 18:27:08 [AppEnt-->] 0(3)->4 with args <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>; nextIdx=[9 9 9 5 9]
+2021/03/10 18:27:08 [->AppEnt] 3(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=4, PrevLogTerm=1, Logs=(4, 13], LeaderCommit=6>, curLogLen=5, processing...
+2021/03/10 18:27:08 [->AppEnt] 3(3) reply ok to AppEnt recv from 0(3): <Term=3, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 1 timeout
+2021/03/10 18:27:08 1 start an election!
+2021/03/10 18:27:08 [ELECTION] Ins 1(4) send reqVote to 4
+2021/03/10 18:27:08 [ELECTION] Ins 1(4) send reqVote to 0
+2021/03/10 18:27:08 [->AppEnt] 4(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>, curLogLen=9, processing...
+2021/03/10 18:27:08 [ELECTION] Ins 1(4) send reqVote to 3
+2021/03/10 18:27:08 [->AppEnt] 4(3) reply ok to AppEnt recv from 0(3): <Term=3, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [->AppEnt] 1(4) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>, curLogLen=13, processing...
+2021/03/10 18:27:08 [->AppEnt] 1(4) decline AppEnt from 0(3) due to outdated term
+2021/03/10 18:27:08 [AppEnt===>] 0(3) commits log 9 with 3 replicas
+2021/03/10 18:27:08 [->AppEnt] 2(3) recv AppEnt: <Term=3, LeaderId=0, PrevLogIdx=8, PrevLogTerm=1, Logs=(8, 13], LeaderCommit=6>, curLogLen=9, processing...
+2021/03/10 18:27:08 [AppEnt===>] 0(3) commits log 10 with 3 replicas
+2021/03/10 18:27:08 [->AppEnt] 2(3) reply ok to AppEnt recv from 0(3): <Term=3, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 1(4) send reqVote to 2
+2021/03/10 18:27:08 [AppEnt===>] 0(3) commits log 11 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 0(3) commits log 12 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 0(3) commits log 13 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 0(3)'s was declined by 1(4) due to outdated term
+2021/03/10 18:27:08 [SYS] 0(3) applies log 7 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 7 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=7, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 8 ready, val={1 3  87201 0}
+2021/03/10 18:27:08 Server 0 applied log 7: {2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 Server 0 applied log 8: {1 3  87201 0}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 8 ok, val={1 3  87201 0}, lastApplied=8, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 9 ready, val={0 3  87201 1}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 9 ok, val={0 3  87201 1}, lastApplied=9, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 10 ready, val={2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 Server 0 applied log 9: {0 3  87201 1}
+2021/03/10 18:27:08 [ELECTION] Ins 3(4) recv reqVote from 1(4), NOT, recv <t,id>=<1,12>, my log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 Server 0 applied log 10: {2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 10 ok, val={2 1 x 1 1 y 98145 2}, lastApplied=10, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 11 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 Server 0 applied log 11: {2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 11 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=11, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 12 ready, val={2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 12 ok, val={2 2 x 2 0 y 97896 1}, lastApplied=12, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 0(3) applies log 13 ready, val={2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 Server 0 applied log 12: {2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 Server 0 applied log 13: {2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 [SYS] 0(3) applies log 13 ok, val={2 4 x 4 0 y 47984 1}, lastApplied=13, cmtIdx=13
+2021/03/10 18:27:08 [SYS] 3(3) applies log 1 ready, val={1 0  93602 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 1 ok, val={1 0  93602 0}, lastApplied=1, cmtIdx=6
+2021/03/10 18:27:08 [SYS] 3(4) applies log 2 ready, val={1 3  87201 0}
+2021/03/10 18:27:08 Server 3 applied log 1: {1 0  93602 0}
+2021/03/10 18:27:08 Server 3 applied log 2: {1 3  87201 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 2 ok, val={1 3  87201 0}, lastApplied=2, cmtIdx=6
+2021/03/10 18:27:08 [SYS] 3(4) applies log 3 ready, val={1 4  47984 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 3 ok, val={1 4  47984 0}, lastApplied=3, cmtIdx=6
+2021/03/10 18:27:08 [SYS] 3(4) applies log 4 ready, val={1 1  98145 0}
+2021/03/10 18:27:08 Server 3 applied log 3: {1 4  47984 0}
+2021/03/10 18:27:08 Server 3 applied log 4: {1 1  98145 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 4 ok, val={1 1  98145 0}, lastApplied=4, cmtIdx=6
+2021/03/10 18:27:08 [SYS] 3(4) applies log 5 ready, val={1 2  97896 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 5 ok, val={1 2  97896 0}, lastApplied=5, cmtIdx=6
+2021/03/10 18:27:08 Server 3 applied log 5: {1 2  97896 0}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 6 ready, val={2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:08 [SYS] 3(4) applies log 6 ok, val={2 1 x 1 0 y 98145 1}, lastApplied=6, cmtIdx=6
+2021/03/10 18:27:08 Server 3 applied log 6: {2 1 x 1 0 y 98145 1}
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 1
+2021/03/10 18:27:08 [ELECTION] Ins 0(4) recv reqVote from 1(4), NOT, recv <t,id>=<1,12>, my log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 4(4) recv reqVote from 1(4), NOT, recv <t,id>=<1,12>, my log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 1
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 2
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 2
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 3
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 4
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 3
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 2
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 4
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 1
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 0
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 2
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 4
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 0(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 1
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 3
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 2
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 3
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 4
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 0
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 2
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 0(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 4
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 3
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 0
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 0(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 1
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 1
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 4
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 0
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 2
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 1
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 2
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 [SYS] 0(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 1
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 2
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 3
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 3
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 2
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 4
+2021/03/10 18:27:08 [ELECTION] Ins 1 timeout
+2021/03/10 18:27:08 [SYS] 1(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 3
+2021/03/10 18:27:08 1 start an election!
+2021/03/10 18:27:08 [ELECTION] Ins 1(5) send reqVote to 4
+2021/03/10 18:27:08 [ELECTION] Ins 1(5) send reqVote to 2
+2021/03/10 18:27:08 [ELECTION] Ins 1(5) send reqVote to 3
+2021/03/10 18:27:08 [ELECTION] Ins 1(5) send reqVote to 0
+2021/03/10 18:27:08 [SYS] 4(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 [SYS] 3(4) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [SYS] 2(3) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 3
+2021/03/10 18:27:08 [ELECTION] Ins 0(5) recv reqVote from 1(5), NOT, recv <t,id>=<1,12>, my log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 2
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 4
+2021/03/10 18:27:08 [ELECTION] Ins 4 timeout
+2021/03/10 18:27:08 4 start an election!
+2021/03/10 18:27:08 [ELECTION] Ins 4(5) send reqVote to 3
+2021/03/10 18:27:08 [SYS] 1(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 0
+2021/03/10 18:27:08 [ELECTION] Ins 3(5) recv reqVote from 1(5), NOT, recv <t,id>=<1,12>, my log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 4(5) recv reqVote from 1(5), NOT due to voted
+2021/03/10 18:27:08 [SYS] 1(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 [SYS] 0(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 0
+2021/03/10 18:27:08 [ELECTION] Ins 4(5) send reqVote to 1
+2021/03/10 18:27:08 [ELECTION] Ins 4(5) send reqVote to 2
+2021/03/10 18:27:08 [ELECTION] Ins 4(5) send reqVote to 0
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 4
+2021/03/10 18:27:08 [ELECTION] Ins 3 timeout
+2021/03/10 18:27:08 3 start an election!
+2021/03/10 18:27:08 [ELECTION] Ins 3(6) send reqVote to 4
+2021/03/10 18:27:08 [ELECTION] Ins 3(6) send reqVote to 0
+2021/03/10 18:27:08 [ELECTION] Ins 3(6) send reqVote to 1
+2021/03/10 18:27:08 [ELECTION] Ins 3(6) send reqVote to 2
+2021/03/10 18:27:08 [SYS] 0(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 [SYS] 4(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 3
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 4
+2021/03/10 18:27:08 [SYS] 3(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 3 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 0
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 1
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 1
+2021/03/10 18:27:08 [ELECTION] Ins 0(5) recv reqVote from 4, granted. My log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 2(5) recv reqVote from 4, granted. My log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [SYS] 0(5) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [ELECTION] Ins 4 won election(5) with 3 grants and logs <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 [AppEnt-->] 4(5)->3 with args <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 1
+2021/03/10 18:27:08 [AppEnt-->] 4(5)->1 with args <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [SYS] New cmd 4(5) recv at idx=14, val={2 2 x 2 0 y 97896 1}, <len=15, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 2 x 2 0 y 97896 1}(Idx=14, Term=5)>
+2021/03/10 18:27:08 [ELECTION] Ins 1(6) recv reqVote from 3, granted. My log: <len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:08 [KV] PA cmd{log=14, type=2, <2, x 2 0 y>, seq=1} ok, leader=4, from cli 97896
+2021/03/10 18:27:08 [SYS] 1(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [AppEnt-->] 4(5)->2 with args <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 14], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 4(5)->0 with args <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 2
+2021/03/10 18:27:08 [ELECTION] Ins 1(6) recv reqVote from 4(5), NOT due to outdated term
+2021/03/10 18:27:08 [SYS] 1(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 1 is not leader
+2021/03/10 18:27:08 [ELECTION] Ins 0(6) recv reqVote from 3, granted. My log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 4
+2021/03/10 18:27:08 [ELECTION] Ins 4(6) recv reqVote from 3(6), NOT, recv <t,id>=<3,13>, my log: <len=15, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 2 x 2 0 y 97896 1}(Idx=14, Term=5)>
+2021/03/10 18:27:08 [ELECTION] Ins 3 won election(6) with 3 grants and logs <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [ELECTION] Ins 2(6) recv reqVote from 3, granted. My log: <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->4 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->1 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [->AppEnt] 2(6) recv AppEnt: <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 14], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->0 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->2 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>; nextIdx=[14 14 14 14 14]
+2021/03/10 18:27:08 [SYS] 0(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 0 is not leader
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 2
+2021/03/10 18:27:08 [->AppEnt] 2(6) decline AppEnt from 4(5) due to outdated term
+2021/03/10 18:27:08 [AppEnt===>]A delayed sendAppendEntries package from leader 4(5)
+2021/03/10 18:27:08 [SYS] 2(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [->AppEnt] 0(6) recv AppEnt: <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [->AppEnt] 0(6) decline AppEnt from 4(5) due to outdated term
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 [AppEnt===>]A delayed sendAppendEntries package from leader 4(5)
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 2
+2021/03/10 18:27:08 [SYS] 2(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 [SYS] 2(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [->AppEnt] 1(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=13, processing...
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 3
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 [->AppEnt] 4(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=15, processing...
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 3
+2021/03/10 18:27:08 [->AppEnt] 4(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=15, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 2 x 2 0 y 97896 1}(Idx=14, Term=5)>
+2021/03/10 18:27:08 [->AppEnt] 3(6) recv AppEnt: <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [->AppEnt] 3(6) decline AppEnt from 4(5) due to outdated term
+2021/03/10 18:27:08 [->AppEnt] 1(6) decline AppEnt from 3(6) due to incons, conflictIdx=13, my log=<len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:08 [AppEnt===>]A delayed sendAppendEntries package from leader 4(5)
+2021/03/10 18:27:08 [AppEnt===>] 1(6) is inconsistent with 3 in prev log 13
+2021/03/10 18:27:08 [->AppEnt] 0(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [->AppEnt] 0(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [SYS] 2(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 2 is not leader
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 0
+2021/03/10 18:27:08 [->AppEnt] 1(6) recv AppEnt: <Term=5, LeaderId=4, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=13, processing...
+2021/03/10 18:27:08 [->AppEnt] 1(6) decline AppEnt from 4(5) due to outdated term
+2021/03/10 18:27:08 [AppEnt===>]A delayed sendAppendEntries package from leader 4(5)
+2021/03/10 18:27:08 [->AppEnt] 2(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 13], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=14, val={2 1 x 1 1 y 98145 2}, <len=15, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6)>
+2021/03/10 18:27:08 [->AppEnt] 2(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=14, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3)>
+2021/03/10 18:27:08 [KV] PA cmd{log=14, type=2, <1, x 1 1 y>, seq=2} ok, leader=3, from cli 98145
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=15, val={2 0 x 0 0 y 93602 1}, <len=16, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6)>
+2021/03/10 18:27:08 [SYS] 4(6) recv a cmd, but rejected due to not leader
+2021/03/10 18:27:08 [KV] 4 is not leader
+2021/03/10 18:27:08 [KV] PA cmd{log=15, type=2, <0, x 0 0 y>, seq=1} ok, leader=3, from cli 93602
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1
+2021/03/10 18:27:08 Cli 87201 send GET cmd{k=87201} to server 4
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=16, val={2 4 x 4 0 y 47984 1}, <len=17, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6)>
+2021/03/10 18:27:08 [KV] PA cmd{log=16, type=2, <4, x 4 0 y>, seq=1} ok, leader=3, from cli 47984
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=17, val={2 2 x 2 0 y 97896 1}, <len=18, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6)>
+2021/03/10 18:27:08 [KV] PA cmd{log=17, type=2, <2, x 2 0 y>, seq=1} ok, leader=3, from cli 97896
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=18, val={0 3  87201 1}, <len=19, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6)>
+2021/03/10 18:27:08 [KV] Get cmd{log=18, <3, >, seq=1} ok, leader=3, from cli 87201
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->4 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>; nextIdx=[14 13 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->1 with args <Term=6, LeaderId=3, PrevLogIdx=12, PrevLogTerm=3, Logs=(12, 18], LeaderCommit=6>; nextIdx=[14 13 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->2 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>; nextIdx=[14 13 14 14 14]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->0 with args <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>; nextIdx=[14 13 14 14 14]
+2021/03/10 18:27:08 [->AppEnt] 1(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=12, PrevLogTerm=3, Logs=(12, 18], LeaderCommit=6>, curLogLen=13, processing...
+2021/03/10 18:27:08 [->AppEnt] 1(6) decline AppEnt from 3(6) due to incons, conflictIdx=1, my log=<len=13, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {2 1 x 1 1 y 98145 2}(Idx=9, Term=1), {2 4 x 4 0 y 47984 1}(Idx=10, Term=1), {2 2 x 2 0 y 97896 1}(Idx=11, Term=1), {0 3  87201 1}(Idx=12, Term=1)>
+2021/03/10 18:27:08 [AppEnt===>] 1(6) is inconsistent with 3 in prev log 1
+2021/03/10 18:27:08 [->AppEnt] 4(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>, curLogLen=15, processing...
+2021/03/10 18:27:08 [AppEnt] 4(6) conflict: id,t=<14,5> covered by <14,6> from 3(6)
+2021/03/10 18:27:08 [->AppEnt] 0(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [->AppEnt] 4(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=19, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6)>
+2021/03/10 18:27:08 [->AppEnt] 0(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=19, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6)>
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 14 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 15 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 16 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 17 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 18 with 3 replicas
+2021/03/10 18:27:08 [->AppEnt] 2(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=13, PrevLogTerm=3, Logs=(13, 18], LeaderCommit=6>, curLogLen=14, processing...
+2021/03/10 18:27:08 [->AppEnt] 2(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=19, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6)>
+2021/03/10 18:27:08 [SYS] 3(6) applies log 7 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 7 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=7, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 8 ready, val={1 3  87201 0}
+2021/03/10 18:27:08 Server 3 applied log 7: {2 0 x 0 0 y 93602 1}
+
+
+2021/03/10 18:27:08 [KV] Server 3 snapshot with 7 logs and size 1330
+2021/03/10 18:27:08 Ready to trim, size:1330
+2021/03/10 18:27:08 Trim log: discard all before%!(EXTRA int=7, string=size:, int=885, string=, len:, int=11, string=, lastIncIdx:, int=7, string=, lastIncTerm:, int=1)
+
+2021/03/10 18:27:08 Server 3 applied log 8: {1 3  87201 0}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 8 ok, val={1 3  87201 0}, lastApplied=8, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 9 ready, val={0 3  87201 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 9 ok, val={0 3  87201 1}, lastApplied=9, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 10 ready, val={2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 Server 3 applied log 9: {0 3  87201 1}
+2021/03/10 18:27:08 Server 3 applied log 10: {2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 10 ok, val={2 1 x 1 1 y 98145 2}, lastApplied=10, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 11 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 11 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=11, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 12 ready, val={2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 Server 3 applied log 11: {2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 Server 3 applied log 12: {2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 12 ok, val={2 2 x 2 0 y 97896 1}, lastApplied=12, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 13 ready, val={2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 13 ok, val={2 4 x 4 0 y 47984 1}, lastApplied=13, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 14 ready, val={2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 Server 3 applied log 13: {2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 Server 3 applied log 14: {2 1 x 1 1 y 98145 2}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 14 ok, val={2 1 x 1 1 y 98145 2}, lastApplied=14, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 15 ready, val={2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 15 ok, val={2 0 x 0 0 y 93602 1}, lastApplied=15, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 16 ready, val={2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 Server 3 applied log 15: {2 0 x 0 0 y 93602 1}
+2021/03/10 18:27:08 Server 3 applied log 16: {2 4 x 4 0 y 47984 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 16 ok, val={2 4 x 4 0 y 47984 1}, lastApplied=16, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 17 ready, val={2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 17 ok, val={2 2 x 2 0 y 97896 1}, lastApplied=17, cmtIdx=18
+2021/03/10 18:27:08 [SYS] 3(6) applies log 18 ready, val={0 3  87201 1}
+2021/03/10 18:27:08 Server 3 applied log 17: {2 2 x 2 0 y 97896 1}
+2021/03/10 18:27:08 Server 3 applied log 18: {0 3  87201 1}
+2021/03/10 18:27:08 [SYS] 3(6) applies log 18 ok, val={0 3  87201 1}, lastApplied=18, cmtIdx=18
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 0 y} to server 3 success, err=OK
+2021/03/10 18:27:08 Cli 93602 append data: <0, ...x 0 0 y> ok
+2021/03/10 18:27:08 Cli 93602 send PA cmd{op=Append, k=0, v=x 0 1 y} to server 3
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 1 y} to server 2 success, err=OK
+2021/03/10 18:27:08 Cli 98145 append data: <1, ...x 1 1 y> ok
+2021/03/10 18:27:08 Cli 98145 send PA cmd{op=Append, k=1, v=x 1 2 y} to server 2
+2021/03/10 18:27:08 Cli 47984 send PA cmd{op=Append, k=4, v=x 4 0 y} to server 1 success, err=OK
+2021/03/10 18:27:08 Cli 47984 append data: <4, ...x 4 0 y> ok
+2021/03/10 18:27:08 Cli 47984 send GET cmd{k=47984} to server 1
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=19, val={2 0 x 0 1 y 93602 2}, <len=12, {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6)>
+2021/03/10 18:27:08 [KV] PA cmd{log=19, type=2, <0, x 0 1 y>, seq=2} ok, leader=3, from cli 93602
+2021/03/10 18:27:08 Cli 97896 send PA cmd{op=Append, k=2, v=x 2 0 y} to server 0 success, err=OK
+2021/03/10 18:27:08 Cli 97896 append data: <2, ...x 2 0 y> ok
+2021/03/10 18:27:08 Cli 97896 send GET cmd{k=97896} to server 0
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=20, val={2 1 x 1 2 y 98145 3}, <len=13, {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6)>
+2021/03/10 18:27:08 [KV] PA cmd{log=20, type=2, <1, x 1 2 y>, seq=3} ok, leader=3, from cli 98145
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=21, val={0 4  47984 2}, <len=14, {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6)>
+2021/03/10 18:27:08 [KV] Get cmd{log=21, <4, >, seq=2} ok, leader=3, from cli 47984
+2021/03/10 18:27:08 Cli 3 send GET cmd{k=87201} to server 4 success, err=OK
+2021/03/10 18:27:08 Cli 87201 get data: <3, > ok
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->0 with args <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>; nextIdx=[19 1 19 14 19]
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->4 with args <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>; nextIdx=[19 1 19 14 19]
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=22, val={0 2  97896 2}, <len=15, {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6), {0 2  97896 2}(Idx=22, Term=6)>
+2021/03/10 18:27:08 [KV] Get cmd{log=22, <2, >, seq=2} ok, leader=3, from cli 97896
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->1 with args <Term=6, LeaderId=3, PrevLogIdx=0, PrevLogTerm=0, Logs=(0, 22], LeaderCommit=18>; nextIdx=[19 1 19 14 19]
+2021/03/10 18:27:08 Cli 87201 send PA cmd{op=Append, k=3, v=x 3 0 y} to server 4
+2021/03/10 18:27:08 [AppEnt-->] 3(6)->2 with args <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>; nextIdx=[19 1 19 14 19]
+2021/03/10 18:27:08 [->AppEnt] 2(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>, curLogLen=19, processing...
+2021/03/10 18:27:08 [->AppEnt] 2(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=22, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6)>
+2021/03/10 18:27:08 [->AppEnt] 4(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>, curLogLen=19, processing...
+2021/03/10 18:27:08 [->AppEnt] 0(6) recv AppEnt: <Term=6, LeaderId=3, PrevLogIdx=18, PrevLogTerm=6, Logs=(18, 21], LeaderCommit=18>, curLogLen=19, processing...
+2021/03/10 18:27:08 [->AppEnt] 4(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=22, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6)>
+2021/03/10 18:27:08 [->AppEnt] 0(6) reply ok to AppEnt recv from 3(6): <Term=6, Success=true, Reason=0, ConflictTerm=0, ConflictIdx=0> with log <len=22, <nil>(Idx=0, Term=-1), {1 0  93602 0}(Idx=1, Term=1), {1 3  87201 0}(Idx=2, Term=1), {1 4  47984 0}(Idx=3, Term=1), {1 1  98145 0}(Idx=4, Term=1), {1 2  97896 0}(Idx=5, Term=1), {2 1 x 1 0 y 98145 1}(Idx=6, Term=1), {2 0 x 0 0 y 93602 1}(Idx=7, Term=1), {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6)>
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 19 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 20 with 3 replicas
+2021/03/10 18:27:08 [AppEnt===>] 3(6) commits log 21 with 3 replicas
+2021/03/10 18:27:08 [SYS] New cmd 3(6) recv at idx=23, val={2 3 x 3 0 y 87201 2}, <len=16, {1 3  87201 0}(Idx=8, Term=1), {0 3  87201 1}(Idx=9, Term=3), {2 1 x 1 1 y 98145 2}(Idx=10, Term=3), {2 0 x 0 0 y 93602 1}(Idx=11, Term=3), {2 2 x 2 0 y 97896 1}(Idx=12, Term=3), {2 4 x 4 0 y 47984 1}(Idx=13, Term=3), {2 1 x 1 1 y 98145 2}(Idx=14, Term=6), {2 0 x 0 0 y 93602 1}(Idx=15, Term=6), {2 4 x 4 0 y 47984 1}(Idx=16, Term=6), {2 2 x 2 0 y 97896 1}(Idx=17, Term=6), {0 3  87201 1}(Idx=18, Term=6), {2 0 x 0 1 y 93602 2}(Idx=19, Term=6), {2 1 x 1 2 y 98145 3}(Idx=20, Term=6), {0 4  47984 2}(Idx=21, Term=6), {0 2  97896 2}(Idx=22, Term=6), {2 3 x 3 0 y 87201 2}(Idx=23, Term=6)>
+2021/03/10 18:27:08 [KV] PA cmd{log=23, type=2, <3, x 3 0 y>, seq=2} ok, leader=3, from cli 87201
+2021/03/10 18:27:08 [->AppEnt] 1(6) recv AppEnt: <nil>, curLogLen=13, processing...
+panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x585b54]
+
+goroutine 34693 [running]:
+_/home/ubuntu/repos/6.824/src/raft.(*Raft).AppendEntries(0xc0002d9b20, 0x0, 0xc00033cbd0)
+	/home/ubuntu/repos/6.824/src/raft/raft.go:630 +0x1b4
+reflect.Value.call(0xc000068540, 0xc000342750, 0x13, 0x61efe1, 0x4, 0xc0001ffbb8, 0x3, 0x3, 0xc0001ffa80, 0x4b914d, ...)
+	/usr/lib/go-1.13/src/reflect/value.go:460 +0x5f6
+reflect.Value.Call(0xc000068540, 0xc000342750, 0x13, 0xc0001ffbb8, 0x3, 0x3, 0x10, 0x9, 0x8)
+	/usr/lib/go-1.13/src/reflect/value.go:321 +0xb4
+_/home/ubuntu/repos/6.824/src/labrpc.(*Service).dispatch(0xc0003e8300, 0x621be9, 0xd, 0x5ce160, 0xc00036f4b0, 0x621be4, 0x12, 0x66e500, 0x5df1a0, 0xc0001a6600, ...)
+	/home/ubuntu/repos/6.824/src/labrpc/labrpc.go:494 +0x682
+_/home/ubuntu/repos/6.824/src/labrpc.(*Server).dispatch(0xc00068a0e0, 0x5ce160, 0xc00036f4b0, 0x621be4, 0x12, 0x66e500, 0x5df1a0, 0xc0001a6600, 0xaf, 0xf8, ...)
+	/home/ubuntu/repos/6.824/src/labrpc/labrpc.go:418 +0x4a3
+_/home/ubuntu/repos/6.824/src/labrpc.(*Network).processReq.func1(0xc00068a0e0, 0x5ce160, 0xc00036f4b0, 0x621be4, 0x12, 0x66e500, 0x5df1a0, 0xc0001a6600, 0xaf, 0xf8, ...)
+	/home/ubuntu/repos/6.824/src/labrpc/labrpc.go:238 +0x60
+created by _/home/ubuntu/repos/6.824/src/labrpc.(*Network).processReq
+	/home/ubuntu/repos/6.824/src/labrpc/labrpc.go:237 +0x141
+exit status 2
+FAIL	_/home/ubuntu/repos/6.824/src/kvraft	162.330s
