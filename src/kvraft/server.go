@@ -13,7 +13,7 @@ import (
 	"../raft"
 )
 
-const Debug = 0
+const Debug = 1
 
 const (
 	GET    = 0

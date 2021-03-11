@@ -3,6 +3,7 @@ package kvraft
 import (
 	"crypto/rand"
 	"math/big"
+	"time"
 
 	"../labrpc"
 )
@@ -63,6 +64,7 @@ func (ck *Clerk) Get(key string) string {
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)
+		time.Sleep(50 * time.Millisecond)
 	}
 	DPrintf("Cli %v get data: <%v, %v> ok\n", ck.cliID, key, reply.Value)
 	ck.seq++
@@ -101,6 +103,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)
+		time.Sleep(10 * time.Millisecond)
 	}
 	ck.seq++
 }

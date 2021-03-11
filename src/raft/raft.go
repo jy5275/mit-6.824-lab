@@ -79,6 +79,7 @@ type Snapshot struct {
 type Raft struct {
 	mu        sync.Mutex // Lock to protect shared access to this peer's state
 	cond      *sync.Cond
+	condApply *sync.Cond
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
@@ -377,7 +378,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 
 	// Up-to-date or not?
-	if len(rf.log) > 0 {
+	if len(rf.log) > 0 || rf.lastIncludedIdx > 0 {
 		if args.LastLogTerm < rf.GetLastLogTerm() ||
 			(args.LastLogTerm == rf.GetLastLogTerm() && args.LastLogIndex < rf.GetLastLogIdx()) {
 			// Not up-to-date
@@ -501,7 +502,7 @@ func (rf *Raft) FollowerShooter(id int) {
 
 	for !rf.killed() && rf.state == LEADER {
 		prevLogIdx := rf.nextIndex[id] - 1
-		if prevLogIdx > 0 && rf.GetLogTerm(prevLogIdx) < 0 {
+		if rf.GetLastLogIdx() > 0 && rf.GetLogTerm(prevLogIdx) < 0 && rf.lastIncludedIdx > 0 {
 			// Send installSnapshot RPC
 			args := &InstallSnapshotArgs{
 				Term:             rf.currentTerm,
@@ -549,7 +550,6 @@ func (rf *Raft) ElectionRunner() {
 	}()
 
 	// Start an election
-	DPrintf("%v start an election!\n", rf.me)
 	rf.currentTerm++
 	rf.state = CANDIDATE
 	rf.votedFor = rf.me
@@ -796,6 +796,13 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	// 6. If existing log entry has same index and term as snapshot’s
 	//    last included entry, retain log entries FOLLOWING it and reply
 	if rf.GetLogTerm(args.LastIncludedIdx) == args.LastIncludedTerm {
+		if rf.commitIndex < args.LastIncludedIdx {
+			rf.commitIndex = args.LastIncludedIdx
+		}
+		for rf.lastApplied < args.LastIncludedIdx {
+			// wait on cond
+			rf.condApply.Wait()
+		}
 		localIdx := rf.GetLocalIdx(args.LastIncludedIdx)
 		rf.log = rf.log[localIdx+1:]
 
@@ -966,12 +973,13 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				// Addition log
 				rf.mu.Lock()
 				rf.lastApplied++
+				rf.condApply.Broadcast()
 				continue
 			}
 			if rf.FetchLogByIdx(newIdx) == nil {
-				panicMsg := fmt.Sprintf("%v(%v) cannot found log at %v, my curLog=%v\n",
+				DPrintf("%v(%v) cannot found log at %v, my curLog=%v\n",
 					rf.me, rf.currentTerm, newIdx, rf.PrintLogs())
-				panic(panicMsg)
+				panic("panic")
 			}
 			msg := ApplyMsg{
 				Command:      rf.FetchLogByIdx(newIdx).Content,
@@ -979,11 +987,10 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				CommandIndex: newIdx,
 				CommandTerm:  rf.GetLogTerm(newIdx),
 			}
-			DPrintf("[SYS] %v(%v) applies log %v ready, val=%v\n",
-				rf.me, rf.currentTerm, newIdx, msg.Command)
 			applyCh <- msg
 			rf.mu.Lock()
 			rf.lastApplied++
+			rf.condApply.Broadcast()
 			DPrintf("[SYS] %v(%v) applies log %v ok, val=%v, lastApplied=%v, cmtIdx=%v\n",
 				rf.me, rf.currentTerm, newIdx, msg.Command, rf.lastApplied, rf.commitIndex)
 		}
@@ -1024,10 +1031,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		applyCh:          applyCh,
 	}
 	rf.cond = sync.NewCond(&rf.mu)
+	rf.condApply = sync.NewCond(&rf.mu)
 
 	rf.log = append(rf.log, &LogEntry{
 		Index:   0,
-		Term:    -1,
+		Term:    0,
 		Content: nil,
 	})
 	for i := 0; i < len(peers); i++ {
