@@ -13,7 +13,7 @@ import (
 	"../raft"
 )
 
-const Debug = 1
+const Debug = 0
 
 const (
 	GET    = 0
@@ -156,7 +156,7 @@ func (kv *KVServer) DoSnapshot() {
 	kv.lastIncludedIndex = kv.lastAppliedIndex
 	e.Encode(kv.lastIncludedIndex)
 	snapRaw := w.Bytes()
-	kv.rf.DoSnapshot(kv.lastIncludedIndex, snapRaw)
+	kv.rf.DoSnapshot(kv.lastIncludedIndex, kv.maxraftstate, snapRaw)
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {

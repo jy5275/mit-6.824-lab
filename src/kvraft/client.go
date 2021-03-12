@@ -103,7 +103,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 	ck.seq++
 }

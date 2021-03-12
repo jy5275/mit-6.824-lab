@@ -41,6 +41,7 @@ const (
 const (
 	OUTDATED_TERM     = 1
 	LOG_INCONSISTENCY = 2
+	ALREADY_APPLIED   = 3
 )
 
 const (
@@ -233,9 +234,13 @@ func (rf *Raft) persist() {
 
 // Trim log at index and all logs before,
 //  supersed them by snapshot in raw
-func (rf *Raft) DoSnapshot(index int, raw []byte) {
+func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	if sizeLimit != -1 && rf.persister.RaftStateSize() < sizeLimit {
+		// fmt.Printf("sz=%v, limit=%v\n", rf.persister.RaftStateSize(), sizeLimit)
+		return
+	}
 
 	localIdx := rf.GetLocalIdx(index)
 	rf.lastIncludedIdx = rf.log[localIdx].Index
@@ -643,6 +648,22 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// Reset timer
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 
+	// Sometimes AppEnt response package might lost, thus the leader
+	//   doesn't have the most up-to-date nextIdx of this follower.
+	// In case of snapshot on follower X, if snapshot has included
+	//   nextIdx[X] on leader, will panic when prevIdx check!!!
+	// So follower X needs to notify the leader on which idx it has
+	//   applied.
+	if args.PrevLogIndex+1 < rf.lastApplied {
+		reply.Term = rf.currentTerm
+		reply.Success = false
+		reply.Reason = ALREADY_APPLIED
+		reply.ConflictIdx = rf.lastApplied
+		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to prevLogIdx(%v)+1<lastApplied(%v)\n",
+			rf.me, rf.currentTerm, args.LeaderId, args.Term, args.PrevLogIndex, rf.lastApplied)
+		return
+	}
+
 	// Check prev log match
 	if args.PrevLogIndex > 0 {
 		if rf.GetLogTerm(args.PrevLogIndex) != args.PrevLogTerm {
@@ -767,6 +788,11 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	} else if reply.Reason == OUTDATED_TERM {
 		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
+	} else if reply.Reason == ALREADY_APPLIED {
+		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to already applied\n",
+			rf.me, args.Term, server, reply.Term)
+		rf.matchIndex[server] = reply.ConflictIdx
+		rf.nextIndex[server] = rf.matchIndex[server] + 1
 	} else {
 		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
 			rf.me, args.Term, server, reply.Term, reply.Reason)
