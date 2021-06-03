@@ -335,7 +335,7 @@ func (kv *KVServer) ApplyChListener() {
 			fmt.Printf("Error: illegal msg type(%v)\n", newMsg.Command)
 		}
 
-		// Optionnally do snapshot
+		// Optionally do snapshot
 		if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
 			DPrintf("[KV] Server %v snapshot with %v logs and size %v\n",
 				kv.me, kv.lastAppliedIndex, kv.rf.RaftStateSize())

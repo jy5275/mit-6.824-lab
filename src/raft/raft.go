@@ -243,6 +243,9 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	}
 
 	localIdx := rf.GetLocalIdx(index)
+	if localIdx < 0 {
+		panic(fmt.Sprintf("Raft.DoSnapshot(%v, %v, bytes), localIdx=%v", index, sizeLimit, localIdx))
+	}
 	rf.lastIncludedIdx = rf.log[localIdx].Index
 	rf.lastIncludedTerm = rf.log[localIdx].Term
 	rf.log = rf.log[localIdx+1:]
@@ -367,10 +370,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.Term > rf.currentTerm {
 		rf.currentTerm = args.Term
 		rf.votedFor = -1
-		if rf.state != FOLLOWER {
-			rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
-			rf.state = FOLLOWER
-		}
+		rf.state = FOLLOWER
 	}
 
 	// Has already voted for another server in this term
@@ -400,8 +400,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 	reply.VoteGranted = true
 	reply.Term = rf.currentTerm
-	DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v, granted. My log: %v\n",
-		rf.me, rf.currentTerm, args.CandidateId, rf.PrintLogs())
+	DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v, granted.\n",
+		rf.me, rf.currentTerm, args.CandidateId)
 }
 
 //
@@ -434,13 +434,22 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 //
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	DPrintf("[ELECTION] Ins %v(%v) send reqVote to %v\n", rf.me, args.Term, server)
+	DPrintf("[RV-->] Ins %v(%v) send reqVote to %v\n", rf.me, args.Term, server)
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
-		// Do nothing
+		DPrintf("[RV===>]A delayed sendRV package from can %v(%v)\n",
+			rf.me, args.Term)
+		return ok
+	}
+
+	// Unconditional reduction
+	if reply.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
+		rf.state = FOLLOWER
 		return ok
 	}
 
@@ -532,6 +541,7 @@ func (rf *Raft) FollowerShooter(id int) {
 				args.PrevLogTerm = rf.GetLogTerm(args.PrevLogIndex)
 			}
 
+			// Need to carry some logs in this RPC
 			if rf.GetLastLogIdx() >= rf.nextIndex[id] {
 				for i := rf.nextIndex[id]; i <= rf.GetLastLogIdx(); i++ {
 					logAtI := rf.FetchLogByIdx(i)
@@ -556,6 +566,7 @@ func (rf *Raft) ElectionRunner() {
 
 	// Start an election
 	rf.currentTerm++
+	thisTerm := rf.currentTerm
 	rf.state = CANDIDATE
 	rf.votedFor = rf.me
 	rf.forNum = 1
@@ -585,10 +596,14 @@ func (rf *Raft) ElectionRunner() {
 	//  otherwise it will block here indefinitely.
 	// May concurrently receive heartbeat or reqVote which causes reduction.
 	// So we check state for each loop.
-	for rf.state == CANDIDATE && rf.forNum <= len(rf.peers)/2 && rf.totNum < len(rf.peers) {
+	for rf.state == CANDIDATE && rf.forNum <= len(rf.peers)/2 && rf.totNum < len(rf.peers) && rf.currentTerm == thisTerm {
 		// To avoid permanent sleep, ensure holding the lock before lauching
 		//  broadcast routine(to prevent the latter from broadcast before wait)
 		rf.cond.Wait()
+	}
+	if rf.state != CANDIDATE || rf.currentTerm != thisTerm {
+		// Reduce to follower or another election has been launched!
+		return
 	}
 
 	if rf.forNum > (len(rf.peers))/2 {
@@ -596,7 +611,7 @@ func (rf *Raft) ElectionRunner() {
 		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants and logs %v\n",
 			rf.me, rf.currentTerm, rf.forNum, rf.PrintLogs())
 		rf.state = LEADER
-		rf.electionTimer.Stop()
+		// rf.electionTimer.Stop()
 		for i := 0; i < len(rf.peers); i++ {
 			rf.nextIndex[i] = rf.GetLastLogIdx() + 1
 			rf.matchIndex[i] = 0
@@ -614,8 +629,13 @@ func (rf *Raft) ElectionRunner() {
 func (rf *Raft) TimeoutWatcher() {
 	for !rf.killed() {
 		<-rf.electionTimer.C
-		DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
-		go rf.ElectionRunner()
+		rf.mu.Lock()
+		if rf.state != LEADER {
+			DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
+			go rf.ElectionRunner()
+		}
+		rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
+		rf.mu.Unlock()
 	}
 }
 
@@ -730,8 +750,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Success = true
 	reply.Term = rf.currentTerm
 
-	DPrintf("[->AppEnt] %v(%v) reply ok to AppEnt recv from %v(%v): %v with log %v\n",
-		rf.me, rf.currentTerm, args.LeaderId, args.Term, reply, rf.PrintLogs())
+	DPrintf("[->AppEnt] %v(%v) reply ok to AppEnt recv from %v(%v): %v with cmtIdx=%v and log=%v\n",
+		rf.me, rf.currentTerm, args.LeaderId, args.Term, reply, rf.commitIndex, rf.PrintLogs())
 }
 
 func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
@@ -760,6 +780,13 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader %v(%v)\n",
 			rf.me, args.Term)
 		return ok
+	}
+
+	// Unconditional reduction
+	if reply.Term > rf.currentTerm {
+		rf.currentTerm = reply.Term
+		rf.votedFor = -1
+		rf.state = FOLLOWER
 	}
 
 	if reply.Success {
@@ -904,10 +931,7 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 		// Outdated
 		rf.currentTerm = reply.Term
 		rf.votedFor = -1
-		if rf.state != FOLLOWER {
-			rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
-			rf.state = FOLLOWER
-		}
+		rf.state = FOLLOWER
 		return ok
 	}
 
@@ -942,7 +966,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}()
 
 	if rf.state != LEADER {
-		DPrintf("[SYS] %v(%v) recv a cmd, but rejected due to not leader\n", rf.me, rf.currentTerm)
+		//DPrintf("[SYS] %v(%v) recv a cmd, but rejected due to not leader\n", rf.me, rf.currentTerm)
 		return -1, rf.currentTerm, false
 	}
 
@@ -993,19 +1017,16 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 	defer rf.mu.Unlock()
 	for !rf.killed() {
 		for rf.lastApplied < rf.commitIndex {
-			rf.mu.Unlock()
 			newIdx := rf.lastApplied + 1
 			if newIdx == 0 {
 				// Addition log
-				rf.mu.Lock()
 				rf.lastApplied++
 				rf.condApply.Broadcast()
 				continue
 			}
 			if rf.FetchLogByIdx(newIdx) == nil {
-				DPrintf("%v(%v) cannot found log at %v, my curLog=%v\n",
-					rf.me, rf.currentTerm, newIdx, rf.PrintLogs())
-				panic("panic")
+				panic(fmt.Sprintf("%v(%v) cannot found log at %v, my curLog=%v, cmtIdx=%v\n",
+					rf.me, rf.currentTerm, newIdx, rf.PrintLogs(), rf.commitIndex))
 			}
 			msg := ApplyMsg{
 				Command:      rf.FetchLogByIdx(newIdx).Content,
@@ -1013,6 +1034,7 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				CommandIndex: newIdx,
 				CommandTerm:  rf.GetLogTerm(newIdx),
 			}
+			rf.mu.Unlock()
 			applyCh <- msg
 			rf.mu.Lock()
 			rf.lastApplied++
@@ -1064,6 +1086,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		Term:    0,
 		Content: nil,
 	})
+
+	// initialize from state persisted before a crash
+	rf.readPersist(persister.ReadRaftState())
+
 	for i := 0; i < len(peers); i++ {
 		rf.nextIndex[i] = rf.GetLastLogIdx() + 1
 		rf.matchIndex[i] = 0
@@ -1072,9 +1098,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Your initialization code here (2A, 2B, 2C).
 	go rf.TimeoutWatcher()
 	go rf.Applier(applyCh)
-
-	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
 
 	return rf
 }
