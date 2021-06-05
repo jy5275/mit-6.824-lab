@@ -133,30 +133,33 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
-	data    map[string]string
-	nextSeq map[int64]int
-	witness *SeqArray
+	data      map[string]string
+	nextSeq   map[int64]int
+	snapDoing bool
 
 	lastAppliedIndex  int
+	lastAppliedTerm   int
 	lastIncludedIndex int
-	// sleepN            int
-	sleepCnt *SleepCounter
+	sleepCnt          *SleepCounter
 }
 
 // Invoke with kv.mu holding
 func (kv *KVServer) DoSnapshot() {
-	w := new(bytes.Buffer)
-	e := labgob.NewEncoder(w)
-	e.Encode(kv.data)
-	e.Encode(kv.nextSeq)
+	kv.snapDoing = true
 	for !kv.sleepCnt.CheckSleep(kv.lastAppliedIndex) {
 		// Should wait until handler routines all wake up!
 		kv.cond.Wait()
 	}
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(kv.data)
+	e.Encode(kv.nextSeq)
 	kv.lastIncludedIndex = kv.lastAppliedIndex
 	e.Encode(kv.lastIncludedIndex)
+	e.Encode(kv.lastAppliedTerm)
 	snapRaw := w.Bytes()
 	kv.rf.DoSnapshot(kv.lastIncludedIndex, kv.maxraftstate, snapRaw)
+	kv.snapDoing = false
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
@@ -259,11 +262,9 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		log := kv.rf.FetchLogContent(idx)
 		if kv.lastAppliedIndex >= idx && log != nil {
 			if realLog, ok := log.(Op); ok {
-				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
-					// Success
+				if realLog.CliID == op.CliID && realLog.Seq == op.Seq { // Success
 					reply.Err = OK
-				} else {
-					// Fail
+				} else { // Fail
 					reply.Err = ErrWrongLeader
 				}
 			} else {
@@ -323,12 +324,14 @@ func (kv *KVServer) ApplyChListener() {
 			}
 			DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
 			kv.lastAppliedIndex = newMsg.CommandIndex
+			kv.lastAppliedTerm = newMsg.CommandTerm
 			kv.cond.Broadcast()
 		} else if snapMsg, ok := newMsg.Command.(raft.Snapshot); ok {
 			// Snapshot cmd
 			kv.data = snapMsg.Data
 			kv.nextSeq = snapMsg.NextSeq
 			kv.lastAppliedIndex = snapMsg.LastIncludedIdx
+			kv.lastAppliedTerm = snapMsg.LastIncludedTerm
 			DPrintf("Server %v applied snapshot, lastIncIdx=%v\n",
 				kv.me, snapMsg.LastIncludedIdx)
 		} else {
@@ -336,7 +339,7 @@ func (kv *KVServer) ApplyChListener() {
 		}
 
 		// Optionally do snapshot
-		if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate {
+		if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate && !kv.snapDoing {
 			DPrintf("[KV] Server %v snapshot with %v logs and size %v\n",
 				kv.me, kv.lastAppliedIndex, kv.rf.RaftStateSize())
 			kv.DoSnapshot()
@@ -370,6 +373,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 		data:         make(map[string]string),
 		nextSeq:      make(map[int64]int),
 		applyCh:      make(chan raft.ApplyMsg),
+		snapDoing:    false,
 	}
 
 	// You may need initialization code here.

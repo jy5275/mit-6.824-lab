@@ -69,9 +69,10 @@ type ApplyMsg struct {
 }
 
 type Snapshot struct {
-	Data            map[string]string
-	NextSeq         map[int64]int
-	LastIncludedIdx int
+	Data             map[string]string
+	NextSeq          map[int64]int
+	LastIncludedIdx  int
+	LastIncludedTerm int
 }
 
 //
@@ -244,7 +245,7 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 
 	localIdx := rf.GetLocalIdx(index)
 	if localIdx < 0 {
-		panic(fmt.Sprintf("Raft.DoSnapshot(%v, %v, bytes), localIdx=%v", index, sizeLimit, localIdx))
+		panic(fmt.Sprintf("[Snap] %v(%v) Raft.DoSnapshot(%v, %v, bytes), localIdx=%v", rf.me, rf.currentTerm, index, sizeLimit, localIdx))
 	}
 	rf.lastIncludedIdx = rf.log[localIdx].Index
 	rf.lastIncludedTerm = rf.log[localIdx].Term
@@ -256,7 +257,8 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	e0.Encode(rf.votedFor)
 	e0.Encode(rf.log)
 	state := w0.Bytes()
-	DPrintf("Ready to trim, size:%v", rf.persister.RaftStateSize())
+	DPrintf("[Snap] %v(%v) ready to trim, <lastIncIdx=%v, lastIncTerm=%v>, size:%v, log=%v", rf.me,
+		rf.currentTerm, rf.lastIncludedIdx, rf.lastIncludedTerm, rf.persister.RaftStateSize(), rf.PrintLogs())
 
 	rf.persister.SaveStateAndSnapshot(state, raw)
 }
@@ -313,6 +315,9 @@ func (rf *Raft) ReadSnapshot() (map[string]string, map[int64]int, int, int) {
 	}
 	if d.Decode(&rf.lastIncludedIdx) != nil {
 		panic("Decode lastIncludedIdx error")
+	}
+	if d.Decode(&rf.lastIncludedTerm) != nil {
+		panic("Decode lastIncludedTerm error")
 	}
 	rf.lastApplied = rf.lastIncludedIdx
 	DPrintf("[PER] %v(%v) read snapshot with data=%v, nextSeq=%v",
@@ -439,6 +444,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	rf.cond.Broadcast()
 	if args.Term < rf.currentTerm {
 		DPrintf("[RV===>]A delayed sendRV package from can %v(%v)\n",
 			rf.me, args.Term)
@@ -457,7 +463,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 		rf.forNum++
 	}
 	rf.totNum++
-	rf.cond.Broadcast()
+	// rf.cond.Broadcast()
 	return ok
 }
 
@@ -600,6 +606,7 @@ func (rf *Raft) ElectionRunner() {
 		// To avoid permanent sleep, ensure holding the lock before lauching
 		//  broadcast routine(to prevent the latter from broadcast before wait)
 		rf.cond.Wait()
+		DPrintf("[RV] Can %v(%v) has collected %v grants\n", rf.me, thisTerm, rf.forNum)
 	}
 	if rf.state != CANDIDATE || rf.currentTerm != thisTerm {
 		// Reduce to follower or another election has been launched!
@@ -609,7 +616,7 @@ func (rf *Raft) ElectionRunner() {
 	if rf.forNum > (len(rf.peers))/2 {
 		// Win the election
 		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants and logs %v\n",
-			rf.me, rf.currentTerm, rf.forNum, rf.PrintLogs())
+			rf.me, thisTerm, rf.forNum, rf.PrintLogs())
 		rf.state = LEADER
 		// rf.electionTimer.Stop()
 		for i := 0; i < len(rf.peers); i++ {
@@ -674,12 +681,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	//   nextIdx[X] on leader, will panic when prevIdx check!!!
 	// So follower X needs to notify the leader on which idx it has
 	//   applied.
-	if args.PrevLogIndex+1 < rf.lastApplied {
+	if args.PrevLogIndex < rf.lastApplied {
 		reply.Term = rf.currentTerm
 		reply.Success = false
 		reply.Reason = ALREADY_APPLIED
 		reply.ConflictIdx = rf.lastApplied
-		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to prevLogIdx(%v)+1<lastApplied(%v)\n",
+		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to prevLogIdx(%v)<lastApplied(%v)\n",
 			rf.me, rf.currentTerm, args.LeaderId, args.Term, args.PrevLogIndex, rf.lastApplied)
 		return
 	}
@@ -707,8 +714,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				reply.ConflictIdx = rf.GetLastLogIdx() + 1
 			}
 			reply.Reason = LOG_INCONSISTENCY
-			DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons, conflictIdx=%v, my log=%v\n",
-				rf.me, rf.currentTerm, args.LeaderId, args.Term, reply.ConflictIdx, rf.PrintLogs())
+			DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons, conflictIdx=%v, cmtIdx=%v, my log=%v\n",
+				rf.me, rf.currentTerm, args.LeaderId, args.Term, reply.ConflictIdx, rf.commitIndex, rf.PrintLogs())
 			return
 		}
 	}
@@ -830,7 +837,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
 	rf.mu.Lock()
 
-	DPrintf("[->Snap] %v(%v) recv InstSnap from %v(%v), my log=%v\n",
+	DPrintf("[->Snap] %v(%v) recv InSnap from %v(%v), my log=%v\n",
 		rf.me, rf.currentTerm, args.LeaderId, args.Term, rf.PrintLogs())
 	reply.Term = rf.currentTerm
 	if args.Term < rf.currentTerm {
@@ -1034,13 +1041,13 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				CommandIndex: newIdx,
 				CommandTerm:  rf.GetLogTerm(newIdx),
 			}
+			DPrintf("[SYS] %v(%v) applies log %v ok, val=%v, lastApplied=%v, cmtIdx=%v\n",
+				rf.me, rf.currentTerm, newIdx, msg.Command, rf.lastApplied, rf.commitIndex)
 			rf.mu.Unlock()
 			applyCh <- msg
 			rf.mu.Lock()
 			rf.lastApplied++
 			rf.condApply.Broadcast()
-			DPrintf("[SYS] %v(%v) applies log %v ok, val=%v, lastApplied=%v, cmtIdx=%v\n",
-				rf.me, rf.currentTerm, newIdx, msg.Command, rf.lastApplied, rf.commitIndex)
 		}
 		rf.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
