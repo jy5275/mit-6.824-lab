@@ -335,7 +335,8 @@ func (kv *KVServer) ApplyChListener() {
 			DPrintf("Server %v applied snapshot, lastIncIdx=%v\n",
 				kv.me, snapMsg.LastIncludedIdx)
 		} else {
-			fmt.Printf("Error: illegal msg type(%v)\n", newMsg.Command)
+			DPrintf("Error: illegal msg type(%v)\n", newMsg.Command)
+			panic(fmt.Sprintf("Error: illegal msg type(%v)\n", newMsg.Command))
 		}
 
 		// Optionally do snapshot

@@ -55,12 +55,12 @@ func (ck *Clerk) Get(key string) string {
 	leaderId := ck.cachedLeader
 	for {
 		DPrintf("Cli %v send GET cmd{k=%v} to server %v\n",
-			ck.cliID, ck.cliID, leaderId)
+			ck.cliID, key, leaderId)
 		ok := ck.servers[leaderId].Call("KVServer.Get", args, reply)
 		if ok && (reply.Err == "" || reply.Err == OK || reply.Err == ErrNoKey) {
 			ck.cachedLeader = leaderId
 			DPrintf("Cli %v send GET cmd{k=%v} to server %v success, err=%v\n",
-				key, ck.cliID, leaderId, reply.Err)
+				ck.cliID, key, leaderId, reply.Err)
 			break
 		}
 		leaderId = (leaderId + 1) % len(ck.servers)

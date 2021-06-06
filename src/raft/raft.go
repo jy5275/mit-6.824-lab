@@ -681,18 +681,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	//   nextIdx[X] on leader, will panic when prevIdx check!!!
 	// So follower X needs to notify the leader on which idx it has
 	//   applied.
-	if args.PrevLogIndex < rf.lastApplied {
-		reply.Term = rf.currentTerm
-		reply.Success = false
-		reply.Reason = ALREADY_APPLIED
-		reply.ConflictIdx = rf.lastApplied
-		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to prevLogIdx(%v)<lastApplied(%v)\n",
-			rf.me, rf.currentTerm, args.LeaderId, args.Term, args.PrevLogIndex, rf.lastApplied)
-		return
-	}
 
 	// Check prev log match
-	if args.PrevLogIndex > 0 {
+	if args.PrevLogIndex > 0 && args.PrevLogIndex > rf.lastIncludedIdx {
 		if rf.GetLogTerm(args.PrevLogIndex) != args.PrevLogTerm {
 			reply.Success = false
 			reply.Term = rf.currentTerm
@@ -720,8 +711,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		}
 	}
 
-	i := 0                         // index of recved log array
-	myPtr := args.PrevLogIndex + 1 // Index of the log array of this server
+	// TODO: Align for out date logs in snapshot
+	lenCoveredBySnap := rf.lastIncludedIdx - args.PrevLogIndex
+	if lenCoveredBySnap < 0 {
+		lenCoveredBySnap = 0
+	}
+
+	i := lenCoveredBySnap                             // idx of recved log array
+	myPtr := args.PrevLogIndex + 1 + lenCoveredBySnap // idx of the log array on me
 	for myPtr <= rf.GetLastLogIdx() && i < len(args.Entries) &&
 		args.Entries[i].Term == rf.GetLogTerm(myPtr) {
 		i++
@@ -851,6 +848,12 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	}
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 
+	// Ignore any outdated snapshot
+	if args.LastIncludedIdx <= rf.lastIncludedIdx {
+		rf.mu.Unlock()
+		return
+	}
+
 	// 5. Save snapshot file, discard any existing or partial snapshot
 	//    with a smaller index
 	// 6. If existing log entry has same index and term as snapshot’s
@@ -859,11 +862,11 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		if rf.commitIndex < args.LastIncludedIdx {
 			rf.commitIndex = args.LastIncludedIdx
 		}
-		for rf.lastApplied < args.LastIncludedIdx {
-			// wait on cond
-			rf.condApply.Wait()
+		cutIdx := args.LastIncludedIdx
+		if rf.lastApplied < args.LastIncludedIdx {
+			cutIdx = rf.lastApplied
 		}
-		localIdx := rf.GetLocalIdx(args.LastIncludedIdx)
+		localIdx := rf.GetLocalIdx(cutIdx)
 		rf.log = rf.log[localIdx+1:]
 
 		w0 := new(bytes.Buffer) // Raft state encoder
@@ -880,6 +883,9 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	}
 
 	// Log missing or conflict at LastIncIdx
+	DPrintf("[->Snap] %v(%v) is incons with snap lastIncIdx=%v, lastIncT=%v, discard all logs\n",
+		rf.me, rf.currentTerm, args.LastIncludedIdx, args.LastIncludedTerm)
+
 	// 7. Discard the entire log
 	rf.log = []*LogEntry{}
 	w0 := new(bytes.Buffer) // Raft state encoder
@@ -911,8 +917,11 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		CommandValid: false,
 		Command:      snapMsg,
 	}
+	rf.commitIndex = args.LastIncludedIdx
 	rf.lastApplied = args.LastIncludedIdx
 	rf.mu.Unlock()
+
+	// It's ok to override all log msgs before current commitIndex
 	rf.applyCh <- msg
 }
 
