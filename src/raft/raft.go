@@ -106,7 +106,7 @@ type Raft struct {
 	lastIncludedIdx  int
 	lastIncludedTerm int
 	applyCh          chan ApplyMsg
-	Heartbeats       []chan bool
+	Heartbeats       []chan chan bool
 }
 
 // Invoke with lock!
@@ -515,10 +515,44 @@ func (rf *Raft) HeartbeatShooter() {
 	}
 }
 
+func (rf *Raft) StillLeader() bool {
+	// OK without mutex locked
+	resultCh := make(chan bool, len(rf.peers))
+	for i := range rf.peers {
+		if i == rf.me {
+			continue
+		}
+		rf.Heartbeats[i] <- resultCh
+	}
+
+	recvCnt := 1
+	followCnt := 1
+	for recvCnt < len(rf.peers) {
+		select {
+		case result := <-resultCh:
+			recvCnt++
+			if result == true {
+				followCnt++
+			}
+			DPrintf("[DEBUG] Get result: %v, cur recv=%v, follow=%v\n", result, recvCnt, followCnt)
+		default:
+			rf.mu.Lock()
+			if rf.state != LEADER {
+				rf.mu.Unlock()
+				return false
+			}
+			rf.mu.Unlock()
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	return followCnt > len(rf.peers)/2
+}
+
 // Only launched in leader routine
 func (rf *Raft) FollowerShooter(id int) {
 	rf.mu.Lock()
-
+	var leaderCollect chan bool
 	for !rf.killed() && rf.state == LEADER {
 		prevLogIdx := rf.nextIndex[id] - 1
 		if rf.GetLastLogIdx() > 0 && rf.GetLogTerm(prevLogIdx) < 0 && rf.lastIncludedIdx > 0 {
@@ -531,7 +565,7 @@ func (rf *Raft) FollowerShooter(id int) {
 				Data:             rf.persister.ReadSnapshot(),
 			}
 			reply := &InstallSnapshotReply{}
-			go rf.sendInstallSnapshot(id, args, reply)
+			go rf.sendInstallSnapshot(id, args, reply, leaderCollect)
 		} else {
 			// Send AppendEntries
 			args := &AppendEntriesArgs{
@@ -553,13 +587,14 @@ func (rf *Raft) FollowerShooter(id int) {
 					args.Entries = append(args.Entries, logAtI)
 				}
 			}
-			go rf.sendAppendEntries(id, args, reply)
+			go rf.sendAppendEntries(id, args, reply, leaderCollect)
 		}
 		rf.mu.Unlock()
 		select {
-		case <-rf.Heartbeats[id]:
+		case leaderCollect = <-rf.Heartbeats[id]:
 			break
 		case <-time.After(HEARTBEAT_INTERVAL * time.Millisecond):
+			leaderCollect = nil
 			break
 		}
 		rf.mu.Lock()
@@ -679,13 +714,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// Reset timer
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 
-	// Sometimes AppEnt response package might lost, thus the leader
-	//   doesn't have the most up-to-date nextIdx of this follower.
-	// In case of snapshot on follower X, if snapshot has included
-	//   nextIdx[X] on leader, will panic when prevIdx check!!!
-	// So follower X needs to notify the leader on which idx it has
-	//   applied.
-
 	// Check prev log match
 	if args.PrevLogIndex > 0 && args.PrevLogIndex > rf.lastIncludedIdx {
 		if rf.GetLogTerm(args.PrevLogIndex) != args.PrevLogTerm {
@@ -775,7 +803,7 @@ func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 }
 
 // Leader only
-func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
+func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply, c chan bool) bool {
 	DPrintf("[AppEnt-->] %v(%v)->%v with args %v; nextIdx=%v\n",
 		rf.me, rf.currentTerm, server, args, rf.nextIndex)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
@@ -786,6 +814,9 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		// Do nothing
 		DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader %v(%v)\n",
 			rf.me, args.Term)
+		if c != nil {
+			c <- false
+		}
 		return ok
 	}
 
@@ -812,19 +843,31 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 					args.Term, i, num)
 			}
 		}
+		if c != nil {
+			c <- true
+		}
 	} else if reply.Reason == LOG_INCONSISTENCY {
 		DPrintf("[AppEnt===>] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, reply.ConflictIdx)
 		rf.nextIndex[server] = reply.ConflictIdx
 		if rf.nextIndex[server] <= 0 {
 			panic("Error: nextIndex is zero")
 		}
-		rf.Heartbeats[server] <- true
+		if c != nil {
+			c <- true
+		}
+		rf.Heartbeats[server] <- nil
 	} else if reply.Reason == OUTDATED_TERM {
 		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
+		if c != nil {
+			c <- false
+		}
 	} else {
 		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
 			rf.me, args.Term, server, reply.Term, reply.Reason)
+		if c != nil {
+			c <- false
+		}
 	}
 	return ok
 }
@@ -924,7 +967,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 }
 
 func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
-	reply *InstallSnapshotReply) bool {
+	reply *InstallSnapshotReply, c chan bool) bool {
 	DPrintf("[InSnap-->] %v(%v)->%v with args %v\n", rf.me,
 		rf.currentTerm, server, args)
 	ok := rf.peers[server].Call("Raft.InstallSnapshot", args, reply)
@@ -932,12 +975,18 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if !ok {
+		if c != nil {
+			c <- false
+		}
 		return ok
 	}
 	if args.Term < rf.currentTerm {
 		// Delayed network. Do nothing
 		DPrintf("[InSnap===>] A delayed sendInstallSnapshot package from leader %v(%v)\n",
 			rf.me, args.Term)
+		if c != nil {
+			c <- false
+		}
 		return ok
 	}
 
@@ -946,6 +995,9 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 		rf.currentTerm = reply.Term
 		rf.votedFor = -1
 		rf.state = FOLLOWER
+		if c != nil {
+			c <- false
+		}
 		return ok
 	}
 
@@ -953,6 +1005,9 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 	rf.nextIndex[server] = rf.matchIndex[server] + 1
 	DPrintf("[InSnap===>] %v(%v) send InSnap to %v(%v) ok, matchIdx=%v, nextIdx=%v\n",
 		rf.me, rf.currentTerm, server, reply.Term, rf.matchIndex, rf.nextIndex)
+	if c != nil {
+		c <- true
+	}
 	return ok
 }
 
@@ -1091,10 +1146,10 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		lastIncludedIdx:  -1,
 		lastIncludedTerm: -1,
 		applyCh:          applyCh,
-		Heartbeats:       make([]chan bool, len(peers)),
+		Heartbeats:       make([]chan chan bool, len(peers)),
 	}
 	for i := range rf.Heartbeats {
-		rf.Heartbeats[i] = make(chan bool)
+		rf.Heartbeats[i] = make(chan chan bool)
 	}
 
 	rf.cond = sync.NewCond(&rf.mu)
