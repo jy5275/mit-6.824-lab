@@ -556,7 +556,12 @@ func (rf *Raft) FollowerShooter(id int) {
 			go rf.sendAppendEntries(id, args, reply)
 		}
 		rf.mu.Unlock()
-		time.Sleep(HEARTBEAT_INTERVAL * time.Millisecond)
+		select {
+		case <-rf.Heartbeats[id]:
+			break
+		case <-time.After(HEARTBEAT_INTERVAL * time.Millisecond):
+			break
+		}
 		rf.mu.Lock()
 	}
 	rf.mu.Unlock()
@@ -813,7 +818,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		if rf.nextIndex[server] <= 0 {
 			panic("Error: nextIndex is zero")
 		}
-		// TODO: retry immediately
+		rf.Heartbeats[server] <- true
 	} else if reply.Reason == OUTDATED_TERM {
 		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
