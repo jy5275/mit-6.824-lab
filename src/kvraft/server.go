@@ -185,12 +185,15 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 
 	// Keep watching until this log is appied
 	kv.sleepCnt.Add(idx)
+	defer func() {
+		kv.sleepCnt.Sub(idx)
+		kv.cond.Broadcast()
+	}()
+
 	for !kv.killed() {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
-			kv.sleepCnt.Sub(idx)
-			kv.cond.Broadcast()
 			return
 		}
 
@@ -216,10 +219,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		kv.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
-		// kv.cond.Wait()
 	}
-	kv.sleepCnt.Sub(idx)
-	kv.cond.Broadcast()
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
@@ -250,12 +250,15 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 	// Keep watching until this log is appied in kv.rf.logs
 	kv.sleepCnt.Add(idx)
+	defer func() {
+		kv.sleepCnt.Sub(idx)
+		kv.cond.Broadcast()
+	}()
+
 	for !kv.killed() {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
-			kv.sleepCnt.Sub(idx)
-			kv.cond.Broadcast()
 			return
 		}
 
@@ -276,10 +279,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		kv.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
-		// kv.cond.Wait()
 	}
-	kv.sleepCnt.Sub(idx)
-	kv.cond.Broadcast()
 }
 
 //
@@ -322,10 +322,9 @@ func (kv *KVServer) ApplyChListener() {
 					kv.data[key] += val
 				}
 			}
-			DPrintf("Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
+			DPrintf("[KV] Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
 			kv.lastAppliedIndex = newMsg.CommandIndex
 			kv.lastAppliedTerm = newMsg.CommandTerm
-			kv.cond.Broadcast()
 		} else if snapMsg, ok := newMsg.Command.(raft.Snapshot); ok {
 			// Snapshot cmd
 			kv.data = snapMsg.Data

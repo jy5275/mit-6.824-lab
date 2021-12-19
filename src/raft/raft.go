@@ -41,7 +41,6 @@ const (
 const (
 	OUTDATED_TERM     = 1
 	LOG_INCONSISTENCY = 2
-	ALREADY_APPLIED   = 3
 )
 
 const (
@@ -107,6 +106,7 @@ type Raft struct {
 	lastIncludedIdx  int
 	lastIncludedTerm int
 	applyCh          chan ApplyMsg
+	Heartbeats       []chan bool
 }
 
 // Invoke with lock!
@@ -179,7 +179,6 @@ func (rf *Raft) FetchLogByIdx(index int) *LogEntry {
 	}
 	localIdx := rf.GetLocalIdx(index)
 	if localIdx >= len(rf.log) || localIdx < 0 {
-		// TODO: localIdx < 0 may happen in case of snapshot
 		return nil
 	}
 	return rf.log[localIdx]
@@ -711,7 +710,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		}
 	}
 
-	// TODO: Align for out date logs in snapshot
 	lenCoveredBySnap := rf.lastIncludedIdx - args.PrevLogIndex
 	if lenCoveredBySnap < 0 {
 		lenCoveredBySnap = 0
@@ -819,11 +817,6 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	} else if reply.Reason == OUTDATED_TERM {
 		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
-	} else if reply.Reason == ALREADY_APPLIED {
-		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to already applied\n",
-			rf.me, args.Term, server, reply.Term)
-		rf.matchIndex[server] = reply.ConflictIdx
-		rf.nextIndex[server] = rf.matchIndex[server] + 1
 	} else {
 		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
 			rf.me, args.Term, server, reply.Term, reply.Reason)
@@ -1093,7 +1086,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		lastIncludedIdx:  -1,
 		lastIncludedTerm: -1,
 		applyCh:          applyCh,
+		Heartbeats:       make([]chan bool, len(peers)),
 	}
+	for i := range rf.Heartbeats {
+		rf.Heartbeats[i] = make(chan bool)
+	}
+
 	rf.cond = sync.NewCond(&rf.mu)
 	rf.condApply = sync.NewCond(&rf.mu)
 
