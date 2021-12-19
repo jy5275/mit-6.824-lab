@@ -141,6 +141,7 @@ type KVServer struct {
 	lastAppliedTerm   int
 	lastIncludedIndex int
 	sleepCnt          *SleepCounter
+	getResp           map[int]string
 }
 
 // Invoke with kv.mu holding
@@ -205,7 +206,8 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
 					// Success
 					reply.Err = OK
-					reply.Value = kv.data[args.Key]
+					reply.Value = kv.getResp[idx]
+					delete(kv.getResp, idx)
 				} else {
 					// Fail
 					reply.Err = ErrWrongLeader
@@ -311,7 +313,12 @@ func (kv *KVServer) ApplyChListener() {
 		if applyMsgOp, ok := newMsg.Command.(Op); ok {
 			// A normal log entry
 			if applyMsgOp.Seq < kv.nextSeq[applyMsgOp.CliID] {
-				// Dup detection: just ignore dup cmd in rf.log
+				// Dup:
+				// 1. for write req, just ignore dup cmd in rf.log
+				// 2. for read req, should ensure correct read result returned to cli
+				if applyMsgOp.OpType == GET {
+					kv.getResp[newMsg.CommandIndex] = kv.data[applyMsgOp.Key]
+				}
 			} else {
 				kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
 				key := applyMsgOp.Key
@@ -320,6 +327,8 @@ func (kv *KVServer) ApplyChListener() {
 					kv.data[key] = val
 				} else if applyMsgOp.OpType == APPEND {
 					kv.data[key] += val
+				} else if applyMsgOp.OpType == GET {
+					kv.getResp[newMsg.CommandIndex] = kv.data[applyMsgOp.Key]
 				}
 			}
 			DPrintf("[KV] Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
@@ -374,6 +383,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 		nextSeq:      make(map[int64]int),
 		applyCh:      make(chan raft.ApplyMsg),
 		snapDoing:    false,
+		getResp:      make(map[int]string),
 	}
 
 	// You may need initialization code here.
