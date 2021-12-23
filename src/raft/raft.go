@@ -515,8 +515,16 @@ func (rf *Raft) HeartbeatShooter() {
 	}
 }
 
-func (rf *Raft) StillLeader() bool {
+func (rf *Raft) LeaderRead() (bool, int) {
 	// OK without mutex locked
+	_, isLeader := rf.GetState()
+	if !isLeader {
+		return false, -1
+	}
+	rf.mu.Lock()
+	leaderCmtIdx := rf.commitIndex
+	rf.mu.Unlock()
+
 	resultCh := make(chan bool, len(rf.peers))
 	for i := range rf.peers {
 		if i == rf.me {
@@ -537,16 +545,16 @@ func (rf *Raft) StillLeader() bool {
 			DPrintf("[DEBUG] Get result: %v, cur recv=%v, follow=%v\n", result, recvCnt, followCnt)
 		default:
 			rf.mu.Lock()
-			if rf.state != LEADER {
+			if rf.state != LEADER { // TODO: state use atomic var
 				rf.mu.Unlock()
-				return false
+				return false, -1
 			}
 			rf.mu.Unlock()
 			time.Sleep(20 * time.Millisecond)
 		}
 	}
 
-	return followCnt > len(rf.peers)/2
+	return followCnt > len(rf.peers)/2, leaderCmtIdx
 }
 
 // Only launched in leader routine
