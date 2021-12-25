@@ -1,7 +1,7 @@
 # .travis.yml
 language: go
 
-go: "1.11"
+go: "1.13"
 
 script:
   - ls /
