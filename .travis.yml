@@ -1,0 +1,7 @@
+# .travis.yml
+language: go
+
+go: "1.16"
+
+script:
+  - cd src/raft && GO111MODULE=off go test
