@@ -4,4 +4,7 @@ language: go
 go: "1.11"
 
 script:
+  - ls /
+  - go version
+  - go env
   - cd src/raft && go test
