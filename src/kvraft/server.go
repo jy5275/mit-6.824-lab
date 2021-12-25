@@ -164,62 +164,88 @@ func (kv *KVServer) DoSnapshot() {
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
-	op := Op{
-		OpType: GET,
-		Key:    args.Key,
-		Value:  "",
-		CliID:  args.CliID,
-		Seq:    args.Seq,
-	}
-
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
-	idx, initTerm, isLeader := kv.rf.Start(op)
-	if !isLeader {
+	shouldCmtNops := kv.rf.ShouldCommitNops()
+
+	if shouldCmtNops {
+		op := Op{
+			OpType: GET,
+			Key:    args.Key,
+			Value:  "",
+			CliID:  args.CliID,
+			Seq:    args.Seq,
+		}
+
+		idx, initTerm, isLeader := kv.rf.Start(op)
+		if !isLeader {
+			reply.Err = ErrWrongLeader
+			DPrintf("[KV] %v is not leader\n", kv.me)
+			return
+		}
+		DPrintf("[KV] Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+			idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
+
+		// Keep watching until this log is appied
+		kv.sleepCnt.Add(idx)
+
+		for !kv.killed() {
+			curTerm, isLeader := kv.rf.GetState()
+			if !isLeader || curTerm != initTerm {
+				reply.Err = ErrWrongLeader
+				kv.sleepCnt.Sub(idx)
+				kv.cond.Broadcast()
+				return
+			}
+
+			log := kv.rf.FetchLogContent(idx)
+			if kv.lastAppliedIndex >= idx && log != nil {
+				if realLog, ok := log.(Op); ok {
+					// Log at idx has been applied
+					// Nops must has succeed or failed.
+					kv.sleepCnt.Sub(idx)
+					kv.cond.Broadcast()
+					if realLog.CliID != op.CliID || realLog.Seq != op.Seq { // Fail
+						reply.Err = ErrWrongLeader
+						DPrintf("[KV] %v is not leader\n", kv.me)
+						return
+					}
+				}
+				break
+			}
+
+			kv.mu.Unlock()
+			time.Sleep(50 * time.Millisecond)
+			kv.mu.Lock()
+		}
+	}
+
+	res, cmtIdx := kv.rf.LeaderRead()
+	if !res {
 		reply.Err = ErrWrongLeader
 		DPrintf("[KV] %v is not leader\n", kv.me)
 		return
 	}
-	DPrintf("[KV] Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
-		idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
-	res := kv.rf.StillLeader()
-	DPrintf("[DEBUG] StillLeader: %v", res)
-	// Keep watching until this log is appied
-	kv.sleepCnt.Add(idx)
-	defer func() {
-		kv.sleepCnt.Sub(idx)
-		kv.cond.Broadcast()
-	}()
 
+	DPrintf("[KV-DEBUG] Get cmd, key=%v, leader=%v, from cli %v, cmtIdx=%v\n", args.Key, kv.me, args.CliID, cmtIdx)
+
+	// Keep watching until cmtIdx has been applied
 	for !kv.killed() {
-		curTerm, isLeader := kv.rf.GetState()
-		if !isLeader || curTerm != initTerm {
+		_, isLeader := kv.rf.GetState()
+		if !isLeader {
 			reply.Err = ErrWrongLeader
-			return
-		}
-
-		log := kv.rf.FetchLogContent(idx)
-		if kv.lastAppliedIndex >= idx && log != nil {
-			if realLog, ok := log.(Op); ok {
-				// Log at idx has been applied
-				// Client op must has succeed or failed.
-				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
-					// Success
-					reply.Err = OK
-					reply.Value = kv.data[args.Key]
-				} else {
-					// Fail
-					reply.Err = ErrWrongLeader
-				}
-			} else {
-				fmt.Println("Error ret type of FetchLogContent")
-			}
+			DPrintf("[KV-DEBUG] Failed to get due to wrong leader, cmtIdx=%v, <k=%v>, leader=%v, from cli %v\n", cmtIdx, args.Key, kv.me, args.CliID)
 			break
 		}
 
-		kv.mu.Unlock()
-		time.Sleep(50 * time.Millisecond)
-		kv.mu.Lock()
+		if kv.lastAppliedIndex >= cmtIdx {
+			// Success
+			reply.Err = OK
+			reply.Value = kv.data[args.Key]
+			DPrintf("[KV-DEBUG] Has seen the result of cmtIdx=%v, <k=%v, v=%v>, leader=%v, from cli %v\n", cmtIdx, args.Key, reply.Value, kv.me, args.CliID)
+			break
+		}
+		kv.cond.Wait()
 	}
 }
 
@@ -374,12 +400,14 @@ func (kv *KVServer) ApplyChListener() {
 			DPrintf("[KV] Server %v applied log %v: %v\n", kv.me, newMsg.CommandIndex, newMsg.Command)
 			kv.lastAppliedIndex = newMsg.CommandIndex
 			kv.lastAppliedTerm = newMsg.CommandTerm
+			kv.cond.Broadcast()
 		} else if snapMsg, ok := newMsg.Command.(raft.Snapshot); ok {
 			// Snapshot cmd
 			kv.data = snapMsg.Data
 			kv.nextSeq = snapMsg.NextSeq
 			kv.lastAppliedIndex = snapMsg.LastIncludedIdx
 			kv.lastAppliedTerm = snapMsg.LastIncludedTerm
+			kv.cond.Broadcast()
 			DPrintf("Server %v applied snapshot, lastIncIdx=%v\n",
 				kv.me, snapMsg.LastIncludedIdx)
 		} else {

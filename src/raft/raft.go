@@ -515,8 +515,16 @@ func (rf *Raft) HeartbeatShooter() {
 	}
 }
 
-func (rf *Raft) StillLeader() bool {
+func (rf *Raft) LeaderRead() (bool, int) {
 	// OK without mutex locked
+	_, isLeader := rf.GetState()
+	if !isLeader {
+		return false, -1
+	}
+	rf.mu.Lock()
+	leaderCmtIdx := rf.commitIndex
+	rf.mu.Unlock()
+
 	resultCh := make(chan bool, len(rf.peers))
 	for i := range rf.peers {
 		if i == rf.me {
@@ -537,16 +545,16 @@ func (rf *Raft) StillLeader() bool {
 			DPrintf("[DEBUG] Get result: %v, cur recv=%v, follow=%v\n", result, recvCnt, followCnt)
 		default:
 			rf.mu.Lock()
-			if rf.state != LEADER {
+			if rf.state != LEADER { // TODO: state use atomic var
 				rf.mu.Unlock()
-				return false
+				return false, -1
 			}
 			rf.mu.Unlock()
 			time.Sleep(20 * time.Millisecond)
 		}
 	}
 
-	return followCnt > len(rf.peers)/2
+	return followCnt > len(rf.peers)/2, leaderCmtIdx
 }
 
 // Only launched in leader routine
@@ -805,15 +813,16 @@ func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 // Leader only
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply, c chan bool) bool {
 	DPrintf("[AppEnt-->] %v(%v)->%v with args %v; nextIdx=%v\n",
-		rf.me, rf.currentTerm, server, args, rf.nextIndex)
+		rf.me, args.Term, server, args, rf.nextIndex)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
 		// Do nothing
 		DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader %v(%v)\n",
 			rf.me, args.Term)
+		rf.mu.Unlock()
 		if c != nil {
 			c <- false
 		}
@@ -843,6 +852,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 					args.Term, i, num)
 			}
 		}
+		rf.mu.Unlock()
 		if c != nil {
 			c <- true
 		}
@@ -852,6 +862,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		if rf.nextIndex[server] <= 0 {
 			panic("Error: nextIndex is zero")
 		}
+		rf.mu.Unlock()
 		if c != nil {
 			c <- true
 		}
@@ -859,12 +870,14 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	} else if reply.Reason == OUTDATED_TERM {
 		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
+		rf.mu.Unlock()
 		if c != nil {
 			c <- false
 		}
 	} else {
 		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
 			rf.me, args.Term, server, reply.Term, reply.Reason)
+		rf.mu.Unlock()
 		if c != nil {
 			c <- false
 		}
@@ -1058,6 +1071,26 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		rf.currentTerm, newLogIndex, newLogEntryPtr.Content, rf.PrintLogs())
 
 	return newLogIndex, rf.currentTerm, true
+}
+
+func (rf *Raft) ShouldCommitNops() bool {
+	_, isLeader := rf.GetState()
+	if !isLeader {
+		return false
+	}
+
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	lastLog := rf.FetchLogByIdx(rf.commitIndex)
+	if lastLog == nil {
+		return true
+	}
+
+	if lastLog.Term < rf.currentTerm {
+		return true
+	}
+
+	return false
 }
 
 //

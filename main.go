@@ -1,5 +1,5 @@
-// You can edit this code!
-// Click here and start typing.
+// Just for testing golang features
+
 package main
 
 import (
