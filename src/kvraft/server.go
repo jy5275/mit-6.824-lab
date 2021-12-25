@@ -13,7 +13,7 @@ import (
 	"../raft"
 )
 
-const Debug = 1
+const Debug = 0
 
 const (
 	GET    = 0
@@ -166,8 +166,61 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
+	shouldCmtNops := kv.rf.ShouldCommitNops()
+
+	if shouldCmtNops {
+		op := Op{
+			OpType: GET,
+			Key:    args.Key,
+			Value:  "",
+			CliID:  args.CliID,
+			Seq:    args.Seq,
+		}
+
+		idx, initTerm, isLeader := kv.rf.Start(op)
+		if !isLeader {
+			reply.Err = ErrWrongLeader
+			DPrintf("[KV] %v is not leader\n", kv.me)
+			return
+		}
+		DPrintf("[KV] Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
+			idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
+
+		// Keep watching until this log is appied
+		kv.sleepCnt.Add(idx)
+
+		for !kv.killed() {
+			curTerm, isLeader := kv.rf.GetState()
+			if !isLeader || curTerm != initTerm {
+				reply.Err = ErrWrongLeader
+				kv.sleepCnt.Sub(idx)
+				kv.cond.Broadcast()
+				return
+			}
+
+			log := kv.rf.FetchLogContent(idx)
+			if kv.lastAppliedIndex >= idx && log != nil {
+				if realLog, ok := log.(Op); ok {
+					// Log at idx has been applied
+					// Nops must has succeed or failed.
+					kv.sleepCnt.Sub(idx)
+					kv.cond.Broadcast()
+					if realLog.CliID != op.CliID || realLog.Seq != op.Seq { // Fail
+						reply.Err = ErrWrongLeader
+						DPrintf("[KV] %v is not leader\n", kv.me)
+						return
+					}
+				}
+				break
+			}
+
+			kv.mu.Unlock()
+			time.Sleep(50 * time.Millisecond)
+			kv.mu.Lock()
+		}
+	}
+
 	res, cmtIdx := kv.rf.LeaderRead()
-	DPrintf("[KV] %v isLeader:%v\n", res)
 	if !res {
 		reply.Err = ErrWrongLeader
 		DPrintf("[KV] %v is not leader\n", kv.me)
