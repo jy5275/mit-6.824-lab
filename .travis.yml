@@ -1,10 +1,13 @@
 # .travis.yml
 language: go
 
-go: "1.13"
+go: "1.16"
+
+env:
+  global:
+    - GO111MODULE=off
 
 script:
-  - ls /
-  - go version
-  - go env
-  - cd src/raft && go test
+  - export GOPATH=/
+  - cd src/raft/ && go test
+  - cd ../kvraft/ && go test
