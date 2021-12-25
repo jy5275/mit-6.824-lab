@@ -249,54 +249,6 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	}
 }
 
-// func (kv *KVServer) GetV2(args *GetArgs, reply *GetReply) {
-// 	// Your code here.
-
-// 	kv.mu.Lock()
-// 	defer kv.mu.Unlock()
-// 	idx, initTerm, isLeader := kv.rf.Start(op)
-// 	if !isLeader {
-// 		reply.Err = ErrWrongLeader
-// 		DPrintf("[KV] %v is not leader\n", kv.me)
-// 		return
-// 	}
-
-// 	DPrintf("[KV] Get cmd{log=%v, <%v, %v>, seq=%v} ok, leader=%v, from cli %v\n",
-// 		idx, op.Key, op.Value, args.Seq, kv.me, args.CliID)
-
-// 	// Keep watching until this log is appied
-// 	for !kv.killed() {
-// 		curTerm, isLeader := kv.rf.GetState()
-// 		if !isLeader || curTerm != initTerm {
-// 			reply.Err = ErrWrongLeader
-// 			return
-// 		}
-
-// 		log := kv.rf.FetchLogContent(idx)
-// 		if kv.lastAppliedIndex >= idx && log != nil {
-// 			if realLog, ok := log.(Op); ok {
-// 				// Log at idx has been applied
-// 				// Client op must has succeed or failed.
-// 				if realLog.CliID == op.CliID && realLog.Seq == op.Seq {
-// 					// Success
-// 					reply.Err = OK
-// 					reply.Value = kv.data[args.Key]
-// 				} else {
-// 					// Fail
-// 					reply.Err = ErrWrongLeader
-// 				}
-// 			} else {
-// 				fmt.Println("Error ret type of FetchLogContent")
-// 			}
-// 			break
-// 		}
-
-// 		kv.mu.Unlock()
-// 		time.Sleep(50 * time.Millisecond)
-// 		kv.mu.Lock()
-// 	}
-// }
-
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
 	op := Op{
