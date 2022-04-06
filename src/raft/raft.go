@@ -452,7 +452,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 	// Unconditional reduction
 	if reply.Term > rf.currentTerm {
-		rf.currentTerm = args.Term
+		rf.currentTerm = reply.Term
 		rf.votedFor = -1
 		rf.state = FOLLOWER
 		return ok
