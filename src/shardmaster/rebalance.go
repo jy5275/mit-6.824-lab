@@ -1,12 +1,6 @@
-// Just for testing golang features
+package shardmaster
 
-package main
-
-import (
-	"fmt"
-)
-
-const NShards = 10
+import "fmt"
 
 // 10 / 4 --> [3, 3, 2, 2]
 func integerDivide(divident, divisor int) []int {
@@ -53,11 +47,12 @@ func sortInput(oldArr, newArr []int) ([]int, []int) {
 }
 
 
-func rebalance(oldShards []int, oldGrps, newGrps []int) ([]int, int) {
+func rebalance(oldShards [NShards]int, oldGrps, newGrps []int) ([NShards]int, int) {
 	oldGrps, newGrps = sortInput(oldGrps, newGrps)
 	movedShards := 0
 	moveInToken := []int{}
-	newShardsIdx, newShards := make([]int, len(oldShards)), make([]int, len(oldShards))
+	newShardsIdx := make([]int, len(oldShards))
+	var newShards [NShards]int
 
 	bucketNum := len(oldGrps) // 5
 	if len(newGrps) > len(oldGrps) {
@@ -116,6 +111,7 @@ func rebalance(oldShards []int, oldGrps, newGrps []int) ([]int, int) {
 	return newShards, movedShards
 }
 
+
 func SortTestCases() {
 	fmt.Println(sortInput([]int{3,4,6,7,5}, []int{7,4,2,6}))
 	fmt.Println(sortInput([]int{1,2,3,4}, []int{1,2,4,3}))
@@ -124,24 +120,19 @@ func SortTestCases() {
 
 func RebalanceTestCases() {
 	fmt.Println(rebalance(
-		[]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[NShards]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		[]int{0},
 		[]int{10, 11, 12, 33, 44}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 10, 11, 12, 10},
+		[NShards]int{10, 11, 12, 10, 11, 12, 10, 11, 12, 10},
 		[]int{10, 11, 12},
 		[]int{10, 11, 12, 33, 44}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
+		[NShards]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
 		[]int{10, 11, 12, 33, 44},
 		[]int{10, 11, 12}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
+		[NShards]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
 		[]int{10, 11, 12, 33, 44},
 		[]int{10, 11, 12, 44, 33}))
-}
-
-func main() {
-	//SortTestCases()
-	RebalanceTestCases()
 }

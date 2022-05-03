@@ -12,6 +12,9 @@ import "math/big"
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// Your data here.
+	cachedLeader int
+	cliID        int64
+	seq          int
 }
 
 func nrand() int64 {
@@ -25,77 +28,121 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// Your code here.
+	ck.cliID = nrand() % 100000
 	return ck
 }
 
 func (ck *Clerk) Query(num int) Config {
-	args := &QueryArgs{}
-	// Your code here.
-	args.Num = num
-	for {
-		// try each known server.
-		for _, srv := range ck.servers {
-			var reply QueryReply
-			ok := srv.Call("ShardMaster.Query", args, &reply)
-			if ok && reply.WrongLeader == false {
-				return reply.Config
-			}
-		}
-		time.Sleep(100 * time.Millisecond)
+	args := &QueryArgs{
+		BasicArgs: BasicArgs{
+			Seq:   ck.seq,
+			CliID: ck.cliID,
+		},
+		Num: num,
 	}
+	leaderID := ck.cachedLeader
+
+	// Your code here.
+	var reply QueryReply
+	// try each known server.
+	for {
+		DPrintf("Cli %v send Query cmd{num=%v} to server %v\n",
+			ck.cliID, num, leaderID)
+		ok := ck.servers[leaderID].Call("ShardMaster.Query", args, &reply)
+		if ok && reply.Err == OK && reply.WrongLeader == false {
+			ck.cachedLeader = leaderID
+			DPrintf("Cli %v send Query cmd{num=%v} to server %v success, err=%v\n",
+				ck.cliID, num, leaderID, reply.Err)
+			break
+		}
+		leaderID = (leaderID + 1) % len(ck.servers)
+		time.Sleep(50 * time.Millisecond)
+	}
+	DPrintf("Cli %v Query: <%v, %+v> ok\n", ck.cliID, num, reply.Config)
+	ck.seq++
+	return reply.Config
 }
 
 func (ck *Clerk) Join(servers map[int][]string) {
-	args := &JoinArgs{}
-	// Your code here.
-	args.Servers = servers
-
-	for {
-		// try each known server.
-		for _, srv := range ck.servers {
-			var reply JoinReply
-			ok := srv.Call("ShardMaster.Join", args, &reply)
-			if ok && reply.WrongLeader == false {
-				return
-			}
-		}
-		time.Sleep(100 * time.Millisecond)
+	args := &JoinArgs{
+		BasicArgs: BasicArgs{
+			Seq:   ck.seq,
+			CliID: ck.cliID,
+		},
+		Servers: servers,
 	}
+	leaderID := ck.cachedLeader
+
+	// Your code here.
+	var reply JoinReply
+	// try each known server.
+	for {
+		DPrintf("Cli %v send Join cmd{servers=%+v} to server %v\n",
+			ck.cliID, servers, leaderID)
+		ok := ck.servers[leaderID].Call("ShardMaster.Join", args, &reply)
+		if ok && reply.Err == OK && reply.WrongLeader == false {
+			ck.cachedLeader = leaderID
+			DPrintf("Cli %v send Join cmd{servers=%+v} to server %v success, err=%v\n",
+				ck.cliID, servers, leaderID, reply.Err)
+			break
+		}
+		leaderID = (leaderID + 1) % len(ck.servers)
+		time.Sleep(50 * time.Millisecond)
+	}
+	DPrintf("Cli %v Join: <%+v> ok\n", ck.cliID, servers)
+	ck.seq++
 }
 
 func (ck *Clerk) Leave(gids []int) {
-	args := &LeaveArgs{}
-	// Your code here.
-	args.GIDs = gids
+	args := &LeaveArgs{
+		BasicArgs: BasicArgs{
+			Seq:   ck.seq,
+			CliID: ck.cliID,
+		},
+		GIDs: gids,
+	}
+	leaderID := ck.cachedLeader
 
+	// Your code here.
+	var reply LeaveReply
 	for {
-		// try each known server.
-		for _, srv := range ck.servers {
-			var reply LeaveReply
-			ok := srv.Call("ShardMaster.Leave", args, &reply)
-			if ok && reply.WrongLeader == false {
-				return
-			}
+		DPrintf("Cli %v send Leave cmd{gids=%+v} to server %v\n",
+			ck.cliID, gids, leaderID)
+		ok := ck.servers[leaderID].Call("ShardMaster.Leave", args, &reply)
+		if ok && reply.Err == OK && reply.WrongLeader == false {
+			ck.cachedLeader = leaderID
+			DPrintf("Cli %v send Leave cmd{gids=%+v} to server %v success, err=%v\n",
+				ck.cliID, gids, leaderID, reply.Err)
+			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		leaderID = (leaderID + 1) % len(ck.servers)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
 func (ck *Clerk) Move(shard int, gid int) {
-	args := &MoveArgs{}
+	args := &MoveArgs{
+		BasicArgs: BasicArgs{
+			Seq:   ck.seq,
+			CliID: ck.cliID,
+		},
+		Shard: shard,
+		GID:   gid,
+	}
+	leaderID := ck.cachedLeader
 	// Your code here.
-	args.Shard = shard
-	args.GID = gid
-
+	var reply MoveReply
 	for {
-		// try each known server.
-		for _, srv := range ck.servers {
-			var reply MoveReply
-			ok := srv.Call("ShardMaster.Move", args, &reply)
-			if ok && reply.WrongLeader == false {
-				return
-			}
+		DPrintf("Cli %v send Move cmd{shard=%v, gid=%v} to server %v\n",
+			ck.cliID, shard, gid, leaderID)
+		ok := ck.servers[leaderID].Call("ShardMaster.Move", args, &reply)
+		if ok && reply.Err == OK && reply.WrongLeader == false {
+			ck.cachedLeader = leaderID
+			DPrintf("Cli %v send Move cmd{shard=%v, gid=%v} to server %v success, err=%v\n",
+				ck.cliID, shard, gid, leaderID, reply.Err)
+			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		leaderID = (leaderID + 1) % len(ck.servers)
+		time.Sleep(50 * time.Millisecond)
 	}
 }

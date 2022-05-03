@@ -30,11 +30,20 @@ type Config struct {
 
 const (
 	OK = "OK"
+	ErrWrongLeader = "wrong leader"
+	ErrType = "log type is not Op"
+	ErrUnknown = "unknown error"
 )
 
 type Err string
 
+type BasicArgs struct {
+	Seq   int
+	CliID int64
+}
+
 type JoinArgs struct {
+	BasicArgs
 	Servers map[int][]string // new GID -> servers mappings
 }
 
@@ -44,6 +53,7 @@ type JoinReply struct {
 }
 
 type LeaveArgs struct {
+	BasicArgs
 	GIDs []int
 }
 
@@ -53,6 +63,7 @@ type LeaveReply struct {
 }
 
 type MoveArgs struct {
+	BasicArgs
 	Shard int
 	GID   int
 }
@@ -63,6 +74,7 @@ type MoveReply struct {
 }
 
 type QueryArgs struct {
+	BasicArgs
 	Num int // desired config number
 }
 
