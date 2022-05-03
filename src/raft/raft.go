@@ -67,13 +67,6 @@ type ApplyMsg struct {
 	CommandTerm  int
 }
 
-type Snapshot struct {
-	Data             map[string]string
-	NextSeq          map[int64]int
-	LastIncludedIdx  int
-	LastIncludedTerm int
-}
-
 //
 // A Go object implementing a single Raft peer.
 //
@@ -954,22 +947,9 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 
 	// 8. Reset state machine using snapshot contents (and load
 	//    snapshot’s cluster configuration)
-	var snapMsg Snapshot
-	r := bytes.NewBuffer(args.Data)
-	d := labgob.NewDecoder(r)
-	if d.Decode(&snapMsg.Data) != nil {
-		panic("Error: Decode snapshot data error")
-	}
-	if d.Decode(&snapMsg.NextSeq) != nil {
-		panic("Decode seqMap error")
-	}
-	if d.Decode(&snapMsg.LastIncludedIdx) != nil {
-		panic("Decode lastIncludedIdx error")
-	}
-
 	msg := ApplyMsg{
 		CommandValid: false,
-		Command:      snapMsg,
+		Command:      args.Data,
 	}
 	rf.commitIndex = args.LastIncludedIdx
 	rf.lastApplied = args.LastIncludedIdx

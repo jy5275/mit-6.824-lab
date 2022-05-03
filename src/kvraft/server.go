@@ -111,11 +111,19 @@ type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
-	OpType int
-	Key    string
-	Value  string
-	CliID  int64
-	Seq    int
+	OpType   int
+	Key      string
+	Value    string
+	SnapData []byte
+	CliID    int64
+	Seq      int
+}
+
+type Snapshot struct {
+	Data             map[string]string
+	NextSeq          map[int64]int
+	LastIncludedIdx  int
+	LastIncludedTerm int
 }
 
 func (op *Op) IsEqual(op2 *Op) bool {
@@ -353,8 +361,21 @@ func (kv *KVServer) ApplyChListener() {
 			kv.lastAppliedIndex = newMsg.CommandIndex
 			kv.lastAppliedTerm = newMsg.CommandTerm
 			kv.cond.Broadcast()
-		} else if snapMsg, ok := newMsg.Command.(raft.Snapshot); ok {
+		} else if snapBytes, ok := newMsg.Command.([]byte); ok {
 			// Snapshot cmd
+			var snapMsg Snapshot
+			r := bytes.NewBuffer(snapBytes)
+			d := labgob.NewDecoder(r)
+			if d.Decode(&snapMsg.Data) != nil {
+				panic("Error: Decode snapshot data error")
+			}
+			if d.Decode(&snapMsg.NextSeq) != nil {
+				panic("Decode seqMap error")
+			}
+			if d.Decode(&snapMsg.LastIncludedIdx) != nil {
+				panic("Decode lastIncludedIdx error")
+			}
+
 			kv.data = snapMsg.Data
 			kv.nextSeq = snapMsg.NextSeq
 			kv.lastAppliedIndex = snapMsg.LastIncludedIdx
