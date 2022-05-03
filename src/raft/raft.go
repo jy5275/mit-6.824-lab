@@ -288,33 +288,16 @@ func (rf *Raft) readPersist(data []byte) {
 }
 
 // Return value: data, nextSeq, lastIncludedIdx, lastIncludedTerm
-func (rf *Raft) ReadSnapshot() (map[string]string, map[int64]int, int, int) {
+func (rf *Raft) ReadSnapshot() []byte {
 	data := rf.persister.ReadSnapshot()
-	if data == nil || len(data) < 1 {
-		return nil, nil, -1, -1
-	}
+	return data
+}
 
-	r := bytes.NewBuffer(data)
-	d := labgob.NewDecoder(r)
-	var snapMap map[string]string
-	var seqMap map[int64]int
-
-	if d.Decode(&snapMap) != nil {
-		panic("Decode snapshot data error")
-	}
-	if d.Decode(&seqMap) != nil {
-		panic("Decode seqMap error")
-	}
-	if d.Decode(&rf.lastIncludedIdx) != nil {
-		panic("Decode lastIncludedIdx error")
-	}
-	if d.Decode(&rf.lastIncludedTerm) != nil {
-		panic("Decode lastIncludedTerm error")
-	}
+func (rf *Raft) SetSnapshotParam(lastIncludedIdx, lastIncludedTerm int) {
+	rf.lastIncludedIdx, rf.lastIncludedTerm = lastIncludedIdx, lastIncludedTerm
 	rf.lastApplied = rf.lastIncludedIdx
-	DPrintf("[PER] %v(%v) read snapshot with data=%v, nextSeq=%v",
-		rf.me, rf.currentTerm, snapMap, seqMap)
-	return snapMap, seqMap, -1, -1
+	DPrintf("[PER] %v(%v) read snapshot",
+		rf.me, rf.currentTerm)
 }
 
 type LogEntry struct {

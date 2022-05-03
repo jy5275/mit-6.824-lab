@@ -434,7 +434,31 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	}
 
 	// You may need initialization code here.
-	dataMap, seqMap, _, _ := kv.rf.ReadSnapshot()
+	//dataMap, seqMap, _, _ := kv.rf.ReadSnapshot()
+	var dataMap map[string]string
+	var seqMap map[int64]int
+	var lastIncludedIdx, lastIncludedTerm int
+
+	dataBytes := kv.rf.ReadSnapshot()
+	if dataBytes != nil && len(dataBytes) >= 1 {
+		r := bytes.NewBuffer(dataBytes)
+		d := labgob.NewDecoder(r)
+
+		if d.Decode(&dataMap) != nil {
+			panic("Decode snapshot data error")
+		}
+		if d.Decode(&seqMap) != nil {
+			panic("Decode seqMap error")
+		}
+		if d.Decode(&lastIncludedIdx) != nil {
+			panic("Decode lastIncludedIdx error")
+		}
+		if d.Decode(&lastIncludedTerm) != nil {
+			panic("Decode lastIncludedTerm error")
+		}
+		kv.rf.SetSnapshotParam(lastIncludedIdx, lastIncludedTerm)
+	}
+
 	// Deep copy
 	for k, v := range dataMap {
 		kv.data[k] = v
