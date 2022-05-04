@@ -9,13 +9,14 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 const (
-	Debug = 1
+	Debug = 0
 
 	JOIN  = 4
 	LEAVE = 5
@@ -94,18 +95,18 @@ func (sm *ShardMaster) DoSnapshot() {
 
 // RaftReqAndApply send a log appending request and wait for this log
 // to be applied or fail (by witness the actual log at idx
-func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) (WrongLeader bool, Err Err){
+func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) Err{
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	idx, initTerm, isLeader := sm.rf.Start(op)
+	idx, initTerm, isLeader := sm.rf.Start(*op)
 	if !isLeader {
 		DPrintf("[SM] %v is not leader\n", sm.me)
-		return true, ErrWrongLeader
+		return ErrWrongLeader
 	}
 
-	DPrintf("[SM] JOIN cmd %+v, leader=%v\n", op, sm.me)
+	DPrintf("[SM] Submit cmd %+v to Raft core, leader=%v\n", op, sm.me)
 	sm.sleepCnt.Add(idx)
 	defer func() {
 		sm.sleepCnt.Sub(idx)
@@ -115,7 +116,7 @@ func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) (WrongLeader bool, Err
 	for !sm.killed() {
 		curTerm, isLeader := sm.rf.GetState()
 		if !isLeader || curTerm != initTerm {
-			return true, ErrWrongLeader
+			return ErrWrongLeader
 		}
 
 		fetchedLog := sm.rf.FetchLogContent(idx)
@@ -126,15 +127,15 @@ func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) (WrongLeader bool, Err
 					if cb != nil {
 						cb()
 					}
-
-					return false, OK
+					DPrintf("[SM] Leader %v process cmd %+v ok, will resp to client\n", sm.me, op)
+					return OK
 				}
-
-				return true, ErrWrongLeader
+				DPrintf("[SM] Server %v send ErrWrongLeader to server %v\n", sm.me, op.CliID)
+				return ErrWrongLeader
 			}
 
 			fmt.Println("Error ret type of FetchLogContent")
-			return false, ErrType
+			return ErrType
 		}
 
 		sm.mu.Unlock()
@@ -142,7 +143,7 @@ func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) (WrongLeader bool, Err
 		sm.mu.Lock()
 	}
 
-	return false, ErrUnknown
+	return ErrUnknown
 }
 
 func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) {
@@ -154,7 +155,7 @@ func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) {
 		Servers: args.Servers,
 	}
 
-	reply.WrongLeader, reply.Err = sm.RaftReqAndApply(op, nil)
+	reply.Err = sm.RaftReqAndApply(op, nil)
 }
 
 func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) {
@@ -166,20 +167,20 @@ func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) {
 		GIDs:    args.GIDs,
 	}
 
-	reply.WrongLeader, reply.Err = sm.RaftReqAndApply(op, nil)
+	reply.Err = sm.RaftReqAndApply(op, nil)
 }
 
 func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) {
 	// Your code here.
 	op := &Op{
-		OpType: LEAVE,
+		OpType: MOVE,
 		Seq:    args.Seq,
 		CliID:  args.CliID,
 		Shard:  args.Shard,
 		GID:    args.GID,
 	}
 
-	reply.WrongLeader, reply.Err = sm.RaftReqAndApply(op, nil)
+	reply.Err = sm.RaftReqAndApply(op, nil)
 }
 
 func copyConfig(src *Config, dest *Config) {
@@ -202,13 +203,14 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 		Num:    args.Num,
 	}
 
-	reply.WrongLeader, reply.Err = sm.RaftReqAndApply(op, func() {
+	reply.Err = sm.RaftReqAndApply(op, func() {
 		if op.Num == -1 || op.Num > len(sm.configs) - 1 {
 			copyConfig(&sm.configs[len(sm.configs)-1], &reply.Config)
 		} else {
 			copyConfig(&sm.configs[op.Num], &reply.Config)
 		}
 	})
+	DPrintf("[SM] Leader %v Query resp=%+v\n", sm.me, reply)
 }
 
 
@@ -228,7 +230,7 @@ func (sm *ShardMaster) killed() bool {
 	return z == 1
 }
 
-func wrappedRebalance(oldShards [NShards]int, oldGrpMap,
+func (sm *ShardMaster) wrappedRebalance(oldShards [NShards]int, oldGrpMap,
 	newGrpMap map[int][]string) [NShards]int {
 	var oldGrp, newGrp []int
 	for k, _ := range oldGrpMap {
@@ -237,7 +239,9 @@ func wrappedRebalance(oldShards [NShards]int, oldGrpMap,
 	for k, _ := range newGrpMap {
 		newGrp = append(newGrp, k)
 	}
+	DPrintf("[SM] Server %v starts rebalance: oldShards=%+v, oldGrps=%+v, newGrps=%+v\n", sm.me, oldShards, oldGrp, newGrp)
 	newShards, _ := rebalance(oldShards, oldGrp, newGrp)
+	DPrintf("[SM] Server %v finishes rebalance: newShards=%+v\n", sm.me, newShards)
 	return newShards
 }
 
@@ -254,8 +258,13 @@ func (sm *ShardMaster) genConfigJoin(servers map[int][]string) {
 		copy(newConfig.Groups[k], v)
 	}
 
-	newConfig.Shards = wrappedRebalance(oldConfig.Shards,
-		oldConfig.Groups, servers)
+	for k, v := range oldConfig.Groups {
+		newConfig.Groups[k] = make([]string, len(v))
+		copy(newConfig.Groups[k], v)
+	}
+
+	newConfig.Shards = sm.wrappedRebalance(oldConfig.Shards,
+		oldConfig.Groups, newConfig.Groups)
 
 	sm.configs = append(sm.configs, newConfig)
 }
@@ -271,7 +280,7 @@ func (sm *ShardMaster) genConfigLeave(GIDs []int) {
 		delete(newConfig.Groups, gid)
 	}
 
-	newConfig.Shards = wrappedRebalance(oldConfig.Shards,
+	newConfig.Shards = sm.wrappedRebalance(oldConfig.Shards,
 		oldConfig.Groups, newConfig.Groups)
 
 	sm.configs = append(sm.configs, newConfig)
@@ -366,7 +375,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 		mu:           sync.Mutex{},
 		me:           me,
 		applyCh:      make(chan raft.ApplyMsg),
-		maxRaftState: 1000000,
+		maxRaftState: math.MaxInt32,
 		nextSeq:      make(map[int64]int),
 		sleepCnt: &kvraft.SleepCounter{
 			SleepN: make(map[int]bool),
@@ -415,7 +424,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 	for k, v := range seqMap {
 		sm.nextSeq[k] = v
 	}
-
+	DPrintf("[SM] Server %v started\n", sm.me)
+	go sm.ApplyChListener()
 
 	return sm
 }

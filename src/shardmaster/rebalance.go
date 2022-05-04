@@ -50,6 +50,18 @@ func sortInput(oldArr, newArr []int) ([]int, []int) {
 func rebalance(oldShards [NShards]int, oldGrps, newGrps []int) ([NShards]int, int) {
 	oldGrps, newGrps = sortInput(oldGrps, newGrps)
 	movedShards := 0
+	// It's wired but test cases will reduce the num of groups to zero
+	if len(newGrps) == 0 {
+		var result [NShards]int
+		for i:=0;i<NShards;i++ {
+			if oldShards[i] != 0 {
+				movedShards++
+			}
+			result[i] = 0
+		}
+		return result, movedShards
+	}
+
 	moveInToken := []int{}
 	newShardsIdx := make([]int, len(oldShards))
 	var newShards [NShards]int

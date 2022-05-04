@@ -49,7 +49,8 @@ func (ck *Clerk) Query(num int) Config {
 		DPrintf("Cli %v send Query cmd{num=%v} to server %v\n",
 			ck.cliID, num, leaderID)
 		ok := ck.servers[leaderID].Call("ShardMaster.Query", args, &reply)
-		if ok && reply.Err == OK && reply.WrongLeader == false {
+		DPrintf("Cli %v recv resp of Query cmd{num=%v} from server %v, resp=%+v\n", ck.cliID, num, leaderID, reply)
+		if ok && reply.Err == OK {
 			ck.cachedLeader = leaderID
 			DPrintf("Cli %v send Query cmd{num=%v} to server %v success, err=%v\n",
 				ck.cliID, num, leaderID, reply.Err)
@@ -80,7 +81,7 @@ func (ck *Clerk) Join(servers map[int][]string) {
 		DPrintf("Cli %v send Join cmd{servers=%+v} to server %v\n",
 			ck.cliID, servers, leaderID)
 		ok := ck.servers[leaderID].Call("ShardMaster.Join", args, &reply)
-		if ok && reply.Err == OK && reply.WrongLeader == false {
+		if ok && reply.Err == OK {
 			ck.cachedLeader = leaderID
 			DPrintf("Cli %v send Join cmd{servers=%+v} to server %v success, err=%v\n",
 				ck.cliID, servers, leaderID, reply.Err)
@@ -109,7 +110,7 @@ func (ck *Clerk) Leave(gids []int) {
 		DPrintf("Cli %v send Leave cmd{gids=%+v} to server %v\n",
 			ck.cliID, gids, leaderID)
 		ok := ck.servers[leaderID].Call("ShardMaster.Leave", args, &reply)
-		if ok && reply.Err == OK && reply.WrongLeader == false {
+		if ok && reply.Err == OK {
 			ck.cachedLeader = leaderID
 			DPrintf("Cli %v send Leave cmd{gids=%+v} to server %v success, err=%v\n",
 				ck.cliID, gids, leaderID, reply.Err)
@@ -118,6 +119,8 @@ func (ck *Clerk) Leave(gids []int) {
 		leaderID = (leaderID + 1) % len(ck.servers)
 		time.Sleep(50 * time.Millisecond)
 	}
+	DPrintf("Cli %v Leave: <%+v> ok\n", ck.cliID, gids)
+	ck.seq++
 }
 
 func (ck *Clerk) Move(shard int, gid int) {
@@ -136,7 +139,7 @@ func (ck *Clerk) Move(shard int, gid int) {
 		DPrintf("Cli %v send Move cmd{shard=%v, gid=%v} to server %v\n",
 			ck.cliID, shard, gid, leaderID)
 		ok := ck.servers[leaderID].Call("ShardMaster.Move", args, &reply)
-		if ok && reply.Err == OK && reply.WrongLeader == false {
+		if ok && reply.Err == OK {
 			ck.cachedLeader = leaderID
 			DPrintf("Cli %v send Move cmd{shard=%v, gid=%v} to server %v success, err=%v\n",
 				ck.cliID, shard, gid, leaderID, reply.Err)
@@ -145,4 +148,6 @@ func (ck *Clerk) Move(shard int, gid int) {
 		leaderID = (leaderID + 1) % len(ck.servers)
 		time.Sleep(50 * time.Millisecond)
 	}
+	DPrintf("Cli %v Move: shard:%v, gid:%v ok\n", ck.cliID, shard, gid)
+	ck.seq++
 }
