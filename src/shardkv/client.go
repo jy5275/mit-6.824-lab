@@ -40,6 +40,9 @@ type Clerk struct {
 	config   shardmaster.Config
 	make_end func(string) *labrpc.ClientEnd
 	// You will have to modify this struct.
+	cachedLeader map[int]int
+	cliID        int64
+	seq          int
 }
 
 //
@@ -56,6 +59,8 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 	ck.sm = shardmaster.MakeClerk(masters)
 	ck.make_end = make_end
 	// You'll have to add code here.
+	ck.cliID = nrand() % 100000
+	ck.cachedLeader = make(map[int]int)
 	return ck
 }
 
@@ -66,33 +71,45 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 // You will have to modify this function.
 //
 func (ck *Clerk) Get(key string) string {
-	args := GetArgs{}
-	args.Key = key
+	var reply GetReply
+	args := GetArgs{
+		Key:   key,
+		Seq:   ck.seq,
+		CliID: ck.cliID,
+	}
+	shard := key2shard(key)
 
 	for {
-		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
 		if servers, ok := ck.config.Groups[gid]; ok {
-			// try each server for the shard.
-			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
-				var reply GetReply
+			for leaderID := ck.cachedLeader[gid];; {
+				srv := ck.make_end(servers[leaderID])
+
 				ok := srv.Call("ShardKV.Get", &args, &reply)
+				DPrintf("Cli %v send GET cmd %+v to %v-%v, reply=%+v\n",
+					ck.cliID, args, gid, leaderID, reply)
+
 				if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
+					DPrintf("Cli %v send GET cmd %+v to %v-%v success, reply=%+v\n",
+						ck.cliID, args, gid, leaderID, reply)
+					ck.seq++
+					ck.cachedLeader[gid] = leaderID
 					return reply.Value
 				}
-				if ok && (reply.Err == ErrWrongGroup) {
+				if ok && reply.Err == ErrWrongGroup {
 					break
 				}
+
 				// ... not ok, or ErrWrongLeader
+				leaderID = (leaderID + 1) % len(servers)
+				time.Sleep(50 * time.Millisecond)
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
-		// ask master for the latest configuration.
+
+		time.Sleep(50 * time.Millisecond)
+		// ask master for the latest configuration. TODO
 		ck.config = ck.sm.Query(-1)
 	}
-
-	return ""
 }
 
 //
@@ -100,30 +117,43 @@ func (ck *Clerk) Get(key string) string {
 // You will have to modify this function.
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
-	args := PutAppendArgs{}
-	args.Key = key
-	args.Value = value
-	args.Op = op
-
+	var reply PutAppendReply
+	args := PutAppendArgs{
+		Key:   key,
+		Value: value,
+		Op:    op,
+		Seq:   ck.seq,
+		CliID: ck.cliID,
+	}
+	shard := key2shard(key)
 
 	for {
-		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
 		if servers, ok := ck.config.Groups[gid]; ok {
-			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
-				var reply PutAppendReply
+			for leaderID := ck.cachedLeader[gid];; {
+				srv := ck.make_end(servers[leaderID])
+				DPrintf("Cli %v send PA cmd %+v to %v-%v\n",
+					ck.cliID, args, gid, leaderID)
+
 				ok := srv.Call("ShardKV.PutAppend", &args, &reply)
-				if ok && reply.Err == OK {
+				if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
+					DPrintf("Cli %v send PA cmd %+v to %v-%v success, reply=%+v\n",
+						ck.cliID, args, gid, leaderID, reply)
+					ck.seq++
+					ck.cachedLeader[gid] = leaderID
 					return
 				}
 				if ok && reply.Err == ErrWrongGroup {
 					break
 				}
+
 				// ... not ok, or ErrWrongLeader
+				leaderID = (leaderID + 1) % len(servers)
+				time.Sleep(50 * time.Millisecond)
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+
+		time.Sleep(50 * time.Millisecond)
 		// ask master for the latest configuration.
 		ck.config = ck.sm.Query(-1)
 	}

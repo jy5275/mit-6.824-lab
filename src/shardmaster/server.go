@@ -317,7 +317,7 @@ func (sm *ShardMaster) ApplyChListener() {
 				case QUERY: // Do nothing
 				}
 			}
-			DPrintf("[SM] Server %v applied log %v: %v\n", sm.me, newMsg.CommandIndex, newMsg.Command)
+			DPrintf("[SM] Server master-%v applied log %v: %v\n", sm.me, newMsg.CommandIndex, newMsg.Command)
 			sm.lastAppliedIndex = newMsg.CommandIndex
 			sm.lastAppliedTerm = newMsg.CommandTerm
 			sm.cond.Broadcast()
@@ -342,7 +342,7 @@ func (sm *ShardMaster) ApplyChListener() {
 			sm.lastAppliedIndex = snapMsg.LastIncludedIdx
 			sm.lastAppliedTerm = snapMsg.LastIncludedTerm
 			sm.cond.Broadcast()
-			DPrintf("Server %v applied snapshot, lastIncIdx=%v\n",
+			DPrintf("Server master-%v applied snapshot, lastIncIdx=%v\n",
 				sm.me, snapMsg.LastIncludedIdx)
 		} else {
 			DPrintf("Error: illegal msg type(%v)\n", newMsg.Command)
