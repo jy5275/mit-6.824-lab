@@ -11,3 +11,4 @@ script:
   - export GOPATH=/
   - cd src/raft/ && go test
   - cd ../kvraft/ && go test
+  - cd ../shardmaster/ && go test
