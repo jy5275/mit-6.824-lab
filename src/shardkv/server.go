@@ -1,6 +1,5 @@
 package shardkv
 
-
 // import "../shardmaster"
 import (
 	"../kvraft"
@@ -19,13 +18,13 @@ import "../labgob"
 const (
 	Debug = 0
 
-	GET    = 0
-	PUT    = 1
-	APPEND = 2
-	CONFIG = 3
+	GET     = 0
+	PUT     = 1
+	APPEND  = 2
+	RESHARD = 3
 )
 
-func DPrintf(format string, a ...interface{}) (n int, err error) {
+func DPrintf(format string, a ...interface{}) {
 	if Debug > 0 {
 		log.Printf(format, a...)
 	}
@@ -42,6 +41,25 @@ type Op struct {
 	SnapData []byte
 	CliID    int64
 	Seq      int
+
+	// TODO: two logs for each re-sharding: StopOldShards --> ReShard
+	// Send FetchShards RPC in phase2
+	// Phase1:
+	//  1. Start StopOldShards log, wait for apply
+	//  2. In applier, remove old shards out of serving set
+	// Phase2:
+	//  3. FetchShards from other groups (say, G2)
+	//     Retry on failure (possibly at this time G2 hasn't known the newest config from shardmaster)
+	//  4. Start ReShard log, wait for apply
+	//  5. In applier, add new shards into serving set and KVs
+	//
+	// FetchShards:
+	//   1. If args.Num < localNum: discard
+	//   2. If StopOldShards log has already been applied for Num: reply with data and return
+	//   3. Reject and client retries
+	MovedKVs  map[string]string // ReShard
+	NewShards []int             // ReShard
+	RmShards  []int             // StopOldShards
 }
 
 func (op *Op) IsEqual(op2 *Op) bool {
@@ -78,6 +96,9 @@ type ShardKV struct {
 	sleepCnt          *kvraft.SleepCounter
 	mck               *shardmaster.Clerk
 	myShards          map[int]bool
+	myConfig          *shardmaster.Config
+	cliID             int64
+	seq               int
 }
 
 // Invoke with kv.mu holding
@@ -113,7 +134,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 	idx, initTerm, isLeader := kv.rf.Start(op)
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		DPrintf("[KV] %v is not leader\n", kv.me)
+		DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
 		return
 	}
 
@@ -125,8 +146,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 			kv.gid, kv.me, keyShard, args)
 		return
 	}
-	DPrintf("[KV] Get cmd %+v ok, leader=%v\n",
-		args, kv.me)
+	DPrintf("[KV] %v-%v receives GET cmd %+v, shard=%v\n", kv.gid, kv.me, args, keyShard)
 
 	// Keep watching until this log has been applied in kv.rf.logs
 	kv.sleepCnt.Add(idx)
@@ -139,20 +159,23 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
+			DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
 			return
 		}
 
-		log := kv.rf.FetchLogContent(idx)
-		if kv.lastAppliedIndex >= idx && log != nil {
-			if realLog, ok := log.(Op); ok {
+		fetchedLog := kv.rf.FetchLogContent(idx)
+		if kv.lastAppliedIndex >= idx && fetchedLog != nil {
+			if realLog, ok := fetchedLog.(Op); ok {
 				if realLog.CliID == op.CliID && realLog.Seq == op.Seq { // Success
 					reply.Err = OK
 					reply.Value = kv.data[args.Key]
 				} else { // Fail
 					reply.Err = ErrWrongLeader
+					DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
 				}
 			} else {
-				fmt.Println("Error ret type of FetchLogContent")
+				panic(fmt.Sprintf("Error type %v(%T) of FetchLogContent",
+					fetchedLog, fetchedLog))
 			}
 			break
 		}
@@ -183,7 +206,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	idx, initTerm, isLeader := kv.rf.Start(op)
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		DPrintf("[KV] %v is not leader\n", kv.me)
+		DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
 		return
 	}
 
@@ -195,8 +218,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			kv.gid, kv.me, keyShard, args)
 		return
 	}
-	DPrintf("[KV] PA cmd %+v ok, leader=%v\n",
-		args, kv.me)
+	DPrintf("[KV] %v-%v receives PA cmd %+v, shard=%v\n", kv.gid, kv.me, args, keyShard)
 
 	kv.sleepCnt.Add(idx)
 	defer func() {
@@ -209,6 +231,14 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		curTerm, isLeader := kv.rf.GetState()
 		if !isLeader || curTerm != initTerm {
 			reply.Err = ErrWrongLeader
+			DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
+			return
+		}
+
+		if _, ok := kv.myShards[keyShard]; !ok {
+			reply.Err = ErrWrongGroup
+			DPrintf("[KV] %v-%v cannot serve shard %v, args=%v\n",
+				kv.gid, kv.me, keyShard, args)
 			return
 		}
 
@@ -219,6 +249,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 					reply.Err = OK
 				} else { // Fail
 					reply.Err = ErrWrongLeader
+					DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
 				}
 			} else {
 				panic(fmt.Sprintf("Error type %v(%T) of FetchLogContent",
@@ -230,6 +261,72 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		kv.mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		kv.mu.Lock()
+	}
+}
+
+func (kv *ShardKV) FetchShards(args *FetchShardsArgs, reply *FetchShardsReply) {
+	// Not necessary to wait for args.ConfNum to come
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	if _, isLeader := kv.rf.GetState(); !isLeader {
+		reply.Err = ErrWrongLeader
+		return
+	}
+
+	DPrintf("[KV] %v-%v receives FetchShard req %+v\n", kv.gid, kv.me, args)
+
+	if args.ConfNum < kv.myConfig.Num {
+		// Ignore outdated requests
+		reply.Err = ErrOutdated
+		DPrintf("[KV] %v-%v rejects FetchShard req %+v due to outdated num, my num is %v\n",
+			kv.gid, kv.me, args, kv.myConfig.Num)
+		return
+	}
+
+	for shard, _ := range args.NeedShards {
+		delete(kv.myShards, shard)
+	}
+
+	reply.MovedKVs = make(map[string]string)
+	for k, v := range kv.data {
+		sh := key2shard(k)
+		if _, ok := args.NeedShards[sh]; ok {
+			reply.MovedKVs[k] = v
+		}
+	}
+	reply.Err = OK
+	DPrintf("[KV] %v-%v replies FetchShard RPC with %v\n",
+		kv.gid, kv.me, reply)
+}
+
+// Should invoke without mutex lock!
+func (kv *ShardKV) sendFetchShards(serverList []string, confNum int, needShards map[int]bool) (map[string]string, Err) {
+	args := &FetchShardsArgs{
+		NeedShards: needShards,
+		ConfNum:    confNum,
+	}
+	reply := &FetchShardsReply{}
+
+	for leaderID := 0; ; leaderID = (leaderID + 1) % len(serverList) {
+		DPrintf("[KV] %v-%v ready to send FetchShard RPC to %v %+v\n",
+			kv.gid, kv.me, serverList[leaderID], args)
+		ok := kv.make_end(serverList[leaderID]).Call("ShardKV.FetchShards", args, reply)
+		DPrintf("[KV] %v-%v receives FetchShard RPC reply: %+v\n",
+			kv.gid, kv.me, reply)
+
+		if ok && reply.Err == OK {
+			return reply.MovedKVs, OK
+		}
+
+		if reply.Err == ErrWrongLeader {
+			continue
+		}
+
+		if len(reply.Err) > 0 {
+			return nil, reply.Err
+		}
+
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -262,13 +359,26 @@ func (kv *ShardKV) ApplyChListener() {
 				kv.nextSeq[applyMsgOp.CliID] = applyMsgOp.Seq + 1
 				key := applyMsgOp.Key
 				val := applyMsgOp.Value
-				if applyMsgOp.OpType == PUT {
+				switch applyMsgOp.OpType {
+				case PUT:
+					// TODO: check ErrWrongGroup
 					kv.data[key] = val
-				} else if applyMsgOp.OpType == APPEND {
+				case APPEND:
 					kv.data[key] += val
+					DPrintf("[KV] %v-%v append result <%v, %v>\n", kv.gid, kv.me, key, kv.data[key])
+				case RESHARD:
+					for k, v := range applyMsgOp.MovedKVs {
+						kv.data[k] = v
+					}
+					for _, shard := range applyMsgOp.NewShards {
+						kv.myShards[shard] = true
+					}
+					for _, shard := range applyMsgOp.RmShards {
+						delete(kv.myShards, shard)
+					}
 				}
 			}
-			DPrintf("[KV] Server %v-%v applied log %v: %+v\n", kv.gid, kv.me,
+			DPrintf("[KV] %v-%v already applied log %v: %+v\n", kv.gid, kv.me,
 				newMsg.CommandIndex, newMsg.Command)
 			kv.lastAppliedIndex = newMsg.CommandIndex
 			kv.lastAppliedTerm = newMsg.CommandTerm
@@ -302,42 +412,157 @@ func (kv *ShardKV) ApplyChListener() {
 
 		// Optionally do snapshot
 		if kv.maxraftstate != -1 && kv.rf.RaftStateSize() >= kv.maxraftstate && !kv.snapDoing {
-			DPrintf("[KV] Server %v snapshot with %v logs and size %v\n",
-				kv.me, kv.lastAppliedIndex, kv.rf.RaftStateSize())
+			DPrintf("[KV] %v-%v snapshot with %v logs and size %v\n",
+				kv.gid, kv.me, kv.lastAppliedIndex, kv.rf.RaftStateSize())
 			kv.DoSnapshot()
 		}
 		kv.mu.Unlock()
 	}
 }
 
-func (kv *ShardKV) PollConfig() {
-	for {
-		config := kv.mck.Query(-1)
-		var addShards, rmShards []int
-		kv.mu.Lock()
-		for shard, gid := range config.Shards {
-			if gid == kv.gid {
-				if _, ok := kv.myShards[shard]; !ok {
-					// Shard assigned to my group
-					addShards = append(addShards, shard)
-					kv.myShards[shard] = true
+func (kv *ShardKV) getAllKVsFromOtherGrps(needShardsAllGrps map[int]map[int]bool, oldGrps map[int][]string,
+	curNum int) map[string]string {
+	newKVs := map[string]string{}
+	newKVsCh := make(chan map[string]string, 10)
+
+	for oldGID, shardSet := range needShardsAllGrps {
+		serverList := oldGrps[oldGID]
+		shardSetCache := shardSet
+		go func() {
+			fetchedKVs, errMsg := kv.sendFetchShards(serverList, curNum, shardSetCache)
+			if len(errMsg) != 0 && errMsg != OK {
+				DPrintf("[KV] fatal: failed to sendFetchShards, errMsg=%v\n", errMsg)
+				panic("failed to sendFetchShards, errMsg=" + errMsg)
+			}
+			newKVsCh <- fetchedKVs
+		}()
+	}
+
+	for i := 0; i < len(needShardsAllGrps); i++ {
+		data := <-newKVsCh
+		if data == nil {
+			continue
+		}
+		for k, v := range data {
+			newKVs[k] = v
+		}
+	}
+
+	return newKVs
+}
+
+func (kv *ShardKV) AppendAReShardLog(op *Op) {
+	idx, initTerm, isLeader := kv.rf.Start(*op)
+	DPrintf("[KV] %v-%v tries to start a re-sharding log: %+v, idx=%v\n",
+		kv.gid, kv.me, op, idx)
+
+	if !isLeader {
+		DPrintf("[KV] %v-%v is not leader, discard re-sharding log: %+v\n",
+			kv.gid, kv.me, op)
+		// Do nothing...
+		return
+	}
+
+	kv.sleepCnt.Add(idx)
+	defer func() {
+		kv.sleepCnt.Sub(idx)
+		kv.cond.Broadcast()
+	}()
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	for !kv.killed() {
+		curTerm, isLeader := kv.rf.GetState()
+		if !isLeader || curTerm != initTerm {
+			return
+		}
+
+		fetchedLog := kv.rf.FetchLogContent(idx)
+		if kv.lastAppliedIndex >= idx && fetchedLog != nil {
+			if realLog, ok := fetchedLog.(Op); ok {
+				DPrintf("[KV] %v-%v has witnessed the log at idx=%v: %+v\n",
+					kv.gid, kv.me, idx, realLog)
+				if realLog.CliID == op.CliID && realLog.Seq == op.Seq { // Success, TODO
+				} else { // Fail
 				}
 			} else {
+				panic("Error ret type of FetchLogContent")
+			}
+			break
+		}
+
+		kv.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		kv.mu.Lock()
+	}
+
+}
+
+func (kv *ShardKV) PollConfig() {
+	for {
+		time.Sleep(80 * time.Millisecond)
+		if _, isLeader := kv.rf.GetState(); !isLeader {
+			continue
+		}
+
+		newConfig := kv.mck.Query(-1)
+		if newConfig.Num < 1 {
+			continue
+		}
+		needShardsAllGrps := map[int]map[int]bool{} // GID->shardSet
+		var newShards, rmShards []int
+		updated := false
+		kv.mu.Lock()
+		DPrintf("[KV] oldConf=%+v, newConf=%+v, myShards=%+v\n",
+			kv.myConfig.Shards, newConfig.Shards, kv.myShards)
+		for shard, gid := range newConfig.Shards {
+			if gid == kv.gid {
+				if _, ok := kv.myShards[shard]; !ok {
+					updated = true
+					// Shard newly assigned to my group
+					oldGID := kv.myConfig.Shards[shard]
+					newShards = append(newShards, shard)
+					if _, ok := needShardsAllGrps[oldGID]; !ok {
+						needShardsAllGrps[oldGID] = make(map[int]bool)
+					}
+					needShardsAllGrps[oldGID][shard] = true
+				} // Shard taken away from my group: ignore
+			} else {
 				if _, ok := kv.myShards[shard]; ok {
+					updated = true
 					// Shard taken away from my group
-					rmShards = append(rmShards, shard)
 					delete(kv.myShards, shard)
+					rmShards = append(rmShards, shard)
 				}
 			}
 		}
 
-		if len(rmShards) > 0 || len(addShards) > 0 {
-			DPrintf("[KV] Server %v-%v query config %+v, newShards=%+v, rmShards=%+v\n",
-				kv.gid, kv.me, config, addShards, rmShards)
+		oldConfig := kv.myConfig
+		kv.myConfig = &newConfig
+		curNum := newConfig.Num
+		kv.mu.Unlock()
+
+		if !updated || oldConfig.Num == 0 {
+			// No other shards added
+			continue
 		}
 
-		time.Sleep(80 * time.Millisecond)
-		kv.mu.Unlock()
+		DPrintf("[KV] %v-%v receives new config: %+v, needShardsAllGrps:%+v\n",
+			kv.gid, kv.me, newConfig, needShardsAllGrps)
+
+		// Get all KVs from other groups
+		newKVs := kv.getAllKVsFromOtherGrps(needShardsAllGrps, oldConfig.Groups, curNum)
+		op := Op{
+			OpType:    RESHARD,
+			CliID:     kv.cliID,
+			Seq:       kv.seq,
+			MovedKVs:  newKVs,
+			NewShards: newShards,
+			RmShards:  rmShards,
+		}
+
+		kv.seq++
+		kv.AppendAReShardLog(&op)
 	}
 }
 
@@ -389,6 +614,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 		},
 		mck:      shardmaster.MakeClerk(masters),
 		myShards: make(map[int]bool),
+		myConfig: &shardmaster.Config{},
+		cliID:    nrand() % 100000,
 	}
 
 	// Your initialization code here.

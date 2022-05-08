@@ -14,6 +14,7 @@ const (
 	ErrNoKey       = "ErrNoKey"
 	ErrWrongGroup  = "ErrWrongGroup"
 	ErrWrongLeader = "ErrWrongLeader"
+	ErrOutdated    = "ErrOutdated"
 )
 
 type Err string
@@ -45,4 +46,16 @@ type GetArgs struct {
 type GetReply struct {
 	Err   Err
 	Value string
+}
+
+type FetchShardsArgs struct {
+	NeedShards map[int]bool
+	ConfNum    int
+	Seq        int
+	CliID      int64
+}
+
+type FetchShardsReply struct {
+	Err      Err
+	MovedKVs map[string]string
 }

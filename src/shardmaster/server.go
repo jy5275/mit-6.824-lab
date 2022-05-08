@@ -1,6 +1,5 @@
 package shardmaster
 
-
 import (
 	"../kvraft"
 	"../labgob"
@@ -31,7 +30,6 @@ func DPrintf(format string, a ...interface{}) {
 	return
 }
 
-
 type ShardMaster struct {
 	mu      sync.Mutex
 	cond    *sync.Cond
@@ -53,7 +51,6 @@ type ShardMaster struct {
 
 	configs []Config // indexed by config num
 }
-
 
 type Op struct {
 	// Your data here.
@@ -95,7 +92,7 @@ func (sm *ShardMaster) DoSnapshot() {
 
 // RaftReqAndApply send a log appending request and wait for this log
 // to be applied or fail (by witness the actual log at idx
-func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) Err{
+func (sm *ShardMaster) RaftReqAndApply(op *Op, cb func()) Err {
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -161,10 +158,10 @@ func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) {
 func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) {
 	// Your code here.
 	op := &Op{
-		OpType:  LEAVE,
-		Seq:     args.Seq,
-		CliID:   args.CliID,
-		GIDs:    args.GIDs,
+		OpType: LEAVE,
+		Seq:    args.Seq,
+		CliID:  args.CliID,
+		GIDs:   args.GIDs,
 	}
 
 	reply.Err = sm.RaftReqAndApply(op, nil)
@@ -204,15 +201,14 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	}
 
 	reply.Err = sm.RaftReqAndApply(op, func() {
-		if op.Num == -1 || op.Num > len(sm.configs) - 1 {
+		if op.Num == -1 || op.Num > len(sm.configs)-1 {
 			copyConfig(&sm.configs[len(sm.configs)-1], &reply.Config)
 		} else {
 			copyConfig(&sm.configs[op.Num], &reply.Config)
 		}
 	})
-	DPrintf("[SM] Leader %v Query resp=%+v\n", sm.me, reply)
+	//DPrintf("[SM] Leader %v Query resp=%+v\n", sm.me, reply)
 }
-
 
 //
 // the tester calls Kill() when a ShardMaster instance won't
@@ -248,7 +244,7 @@ func (sm *ShardMaster) wrappedRebalance(oldShards [NShards]int, oldGrpMap,
 func (sm *ShardMaster) genConfigJoin(servers map[int][]string) {
 	oldConfig := &sm.configs[len(sm.configs)-1]
 	newConfig := Config{
-		Num: len(sm.configs),
+		Num:    len(sm.configs),
 		Shards: oldConfig.Shards,
 		Groups: make(map[int][]string),
 	}
@@ -294,7 +290,6 @@ func (sm *ShardMaster) genConfigMove(shardID int, GID int) {
 
 	sm.configs = append(sm.configs, newConfig)
 }
-
 
 func (sm *ShardMaster) ApplyChListener() {
 	for !sm.killed() {

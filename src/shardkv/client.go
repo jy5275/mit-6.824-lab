@@ -82,7 +82,7 @@ func (ck *Clerk) Get(key string) string {
 	for {
 		gid := ck.config.Shards[shard]
 		if servers, ok := ck.config.Groups[gid]; ok {
-			for leaderID := ck.cachedLeader[gid];; {
+			for leaderID := ck.cachedLeader[gid]; ; {
 				srv := ck.make_end(servers[leaderID])
 
 				ok := srv.Call("ShardKV.Get", &args, &reply)
@@ -130,7 +130,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	for {
 		gid := ck.config.Shards[shard]
 		if servers, ok := ck.config.Groups[gid]; ok {
-			for leaderID := ck.cachedLeader[gid];; {
+			for leaderID := ck.cachedLeader[gid]; ; {
 				srv := ck.make_end(servers[leaderID])
 				DPrintf("Cli %v send PA cmd %+v to %v-%v\n",
 					ck.cliID, args, gid, leaderID)
