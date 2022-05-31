@@ -16,7 +16,7 @@ import "sync"
 import "../labgob"
 
 const (
-	Debug = 1
+	Debug = 0
 
 	GET     = 0
 	PUT     = 1
@@ -323,13 +323,13 @@ func (kv *ShardKV) FetchShards(args *FetchShardsArgs, reply *FetchShardsReply) {
 		return
 	}
 
-	if args.ConfNum < kv.cachedConfig.Num {
-		// Ignore outdated requests
-		reply.Err = ErrOutdated
-		DPrintf("[KV] %v-%v rej FetchShard req %+v due to outdated Num, my cache Num is %v\n",
-			kv.gid, kv.me, args, kv.cachedConfig.Num)
-		return
-	}
+	//if args.ConfNum < kv.cachedConfig.Num {
+	//	// Ignore outdated requests
+	//	reply.Err = ErrOutdated
+	//	DPrintf("[KV] %v-%v rej FetchShard req %+v due to outdated Num, my cache Num is %v\n",
+	//		kv.gid, kv.me, args, kv.cachedConfig.Num)
+	//	return
+	//}
 
 	if args.ConfNum > kv.cachedConfig.Num {
 		reply.Err = ErrNotFetched
