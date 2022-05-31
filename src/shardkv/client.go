@@ -84,7 +84,8 @@ func (ck *Clerk) Get(key string) string {
 		if servers, ok := ck.config.Groups[gid]; ok {
 			for leaderID := ck.cachedLeader[gid]; ; {
 				srv := ck.make_end(servers[leaderID])
-
+				DPrintf("Cli %v send GET cmd %+v to %v-%v\n",
+					ck.cliID, args, gid, leaderID)
 				ok := srv.Call("ShardKV.Get", &args, &reply)
 				DPrintf("Cli %v send GET cmd %+v to %v-%v, reply=%+v\n",
 					ck.cliID, args, gid, leaderID, reply)
@@ -107,7 +108,7 @@ func (ck *Clerk) Get(key string) string {
 		}
 
 		time.Sleep(50 * time.Millisecond)
-		// ask master for the latest configuration. TODO
+		// ask master for the latest configuration.
 		ck.config = ck.sm.Query(-1)
 	}
 }

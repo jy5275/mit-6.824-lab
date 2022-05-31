@@ -52,7 +52,6 @@ func sortInput(oldArr, newArr []int) ([]int, []int) {
 	return sortedOld, sortedNew
 }
 
-
 func rebalance(oldShards []int, oldGrps, newGrps []int) ([]int, int) {
 	oldGrps, newGrps = sortInput(oldGrps, newGrps)
 	movedShards := 0
@@ -117,9 +116,9 @@ func rebalance(oldShards []int, oldGrps, newGrps []int) ([]int, int) {
 }
 
 func SortTestCases() {
-	fmt.Println(sortInput([]int{3,4,6,7,5}, []int{7,4,2,6}))
-	fmt.Println(sortInput([]int{1,2,3,4}, []int{1,2,4,3}))
-	fmt.Println(sortInput([]int{1,2,3,4}, []int{2,4,3}))
+	fmt.Println(sortInput([]int{3, 4, 6, 7, 5}, []int{7, 4, 2, 6}))
+	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{1, 2, 4, 3}))
+	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{2, 4, 3}))
 }
 
 func RebalanceTestCases() {
@@ -141,7 +140,27 @@ func RebalanceTestCases() {
 		[]int{10, 11, 12, 44, 33}))
 }
 
+type Config struct {
+	Num    int              // config number
+	Shards [10]int          // shard -> gid
+	Groups map[int][]string // gid -> servers[] TODO:can copy directly
+}
+
 func main() {
 	//SortTestCases()
-	RebalanceTestCases()
+	//RebalanceTestCases()
+	c1 := Config{
+		Num:    0,
+		Shards: [10]int{},
+		Groups: map[int][]string{
+			15: {"in", "id"},
+			30: {"cn", "my"},
+			45: {"sg", "hk"},
+		},
+	}
+
+	c2 := c1
+
+	c1.Groups = make(map[int][]string)
+	fmt.Println(c2.Groups, c1.Groups)
 }
