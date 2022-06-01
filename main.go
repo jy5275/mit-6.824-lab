@@ -146,9 +146,7 @@ type Config struct {
 	Groups map[int][]string // gid -> servers[] TODO:can copy directly
 }
 
-func main() {
-	//SortTestCases()
-	//RebalanceTestCases()
+func CopyConfig() {
 	c1 := Config{
 		Num:    0,
 		Shards: [10]int{},
@@ -163,4 +161,12 @@ func main() {
 
 	c1.Groups = make(map[int][]string)
 	fmt.Println(c2.Groups, c1.Groups)
+}
+
+func main() {
+	var i interface{}
+	n := 64
+	i = n
+
+	fmt.Println(i.(int64))
 }
