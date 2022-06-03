@@ -78,6 +78,7 @@ func (ck *Clerk) Get(key string) string {
 		CliID: ck.cliID,
 	}
 	shard := key2shard(key)
+	ck.config = ck.sm.Query(-1)
 
 	for {
 		gid := ck.config.Shards[shard]
@@ -98,6 +99,8 @@ func (ck *Clerk) Get(key string) string {
 					return reply.Value
 				}
 				if ok && reply.Err == ErrWrongGroup {
+					// ask master for the latest configuration.
+					ck.config = ck.sm.Query(-1)
 					break
 				}
 
@@ -108,8 +111,6 @@ func (ck *Clerk) Get(key string) string {
 		}
 
 		time.Sleep(50 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
 	}
 }
 
@@ -127,6 +128,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		CliID: ck.cliID,
 	}
 	shard := key2shard(key)
+	ck.config = ck.sm.Query(-1)
 
 	for {
 		gid := ck.config.Shards[shard]
@@ -145,6 +147,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 					return
 				}
 				if ok && reply.Err == ErrWrongGroup {
+					// ask master for the latest configuration.
+					ck.config = ck.sm.Query(-1)
 					break
 				}
 
@@ -155,8 +159,6 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		}
 
 		time.Sleep(50 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
 	}
 }
 
