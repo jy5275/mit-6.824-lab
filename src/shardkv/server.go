@@ -249,12 +249,12 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 	// Decline other shards
 	keyShard := key2shard(args.Key)
-	if !kv.IsResponsibleForShard(keyShard) {
-		reply.Err = ErrWrongGroup
-		DPrintf("[KV] %v-%v cannot serve shard-%v, args=%v\n",
-			kv.gid, kv.me, keyShard, args)
-		return
-	}
+	//if !kv.IsResponsibleForShard(keyShard) {
+	//	reply.Err = ErrWrongGroup
+	//	DPrintf("[KV] %v-%v cannot serve shard-%v, args=%v\n",
+	//		kv.gid, kv.me, keyShard, args)
+	//	return
+	//}
 	DPrintf("[KV] %v-%v receives PA cmd %+v, shard=%v\n", kv.gid, kv.me, args, keyShard)
 
 	idx, initTerm, isLeader := kv.rf.Start(op)
@@ -615,13 +615,6 @@ func (kv *ShardKV) AppendTwoLogs(newConfig *shardmaster.Config, newLeader bool) 
 		return
 	}
 
-	if newLeader {
-		newLeaderNoop := Op{
-			OpType: NOOP,
-		}
-		kv.AppendLogFromKVServer(&newLeaderNoop)
-	}
-
 	if !kv.configOK {
 		// need repair: should fetch the (working.Num-1)th config, discard newConfig...
 		DPrintf("[KV] %v-%v starts repairing workingConfig:%v\n", kv.gid, kv.me, kv.workingConfig)
@@ -766,6 +759,12 @@ func (kv *ShardKV) PollConfig() {
 		if lastTerm != term {
 			ImNewLeader = true
 			lastTerm = term
+			newLeaderNoop := Op{
+				OpType: NOOP,
+			}
+			kv.mu.Lock()
+			kv.AppendLogFromKVServer(&newLeaderNoop)
+			kv.mu.Unlock()
 		}
 
 		nextConfigID := kv.workingConfig.Num + 1
