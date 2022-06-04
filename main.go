@@ -119,6 +119,8 @@ func SortTestCases() {
 	fmt.Println(sortInput([]int{3, 4, 6, 7, 5}, []int{7, 4, 2, 6}))
 	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{1, 2, 4, 3}))
 	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{2, 4, 3}))
+	fmt.Println(sortInput([]int{0, 1}, []int{0, 2, 1}))
+	fmt.Println(sortInput([]int{0, 1}, []int{2, 1, 0}))
 }
 
 func RebalanceTestCases() {
@@ -138,6 +140,14 @@ func RebalanceTestCases() {
 		[]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
 		[]int{10, 11, 12, 33, 44},
 		[]int{10, 11, 12, 44, 33}))
+	fmt.Println(rebalance(
+		[]int{1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
+		[]int{0, 1},
+		[]int{0, 2, 1}))
+	fmt.Println(rebalance(
+		[]int{1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
+		[]int{1, 0},
+		[]int{2, 1, 0}))
 }
 
 type Config struct {
@@ -146,10 +156,15 @@ type Config struct {
 	Groups map[int][]string // gid -> servers[] TODO:can copy directly
 }
 
+func copyConfig(src *Config, dest *Config) {
+	dest.Num = src.Num
+	dest.Shards = src.Shards
+}
+
 func CopyConfig() {
 	c1 := Config{
 		Num:    0,
-		Shards: [10]int{},
+		Shards: [10]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 		Groups: map[int][]string{
 			15: {"in", "id"},
 			30: {"cn", "my"},
@@ -157,16 +172,18 @@ func CopyConfig() {
 		},
 	}
 
-	c2 := c1
+	c2 := Config{
+		Num: 1,
+	}
+
+	copyConfig(&c1, &c2)
+	c2.Shards[3] = 43242
 
 	c1.Groups = make(map[int][]string)
-	fmt.Println(c2.Groups, c1.Groups)
+	fmt.Println(c1.Shards, c2.Shards)
 }
 
 func main() {
-	var i interface{}
-	n := 64
-	i = n
-
-	fmt.Println(i.(int64))
+	//SortTestCases()
+	RebalanceTestCases()
 }

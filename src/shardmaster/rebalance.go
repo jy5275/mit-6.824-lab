@@ -1,6 +1,9 @@
 package shardmaster
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // 10 / 4 --> [3, 3, 2, 2]
 func integerDivide(divident, divisor int) []int {
@@ -19,6 +22,8 @@ func integerDivide(divident, divisor int) []int {
 }
 
 func sortInput(oldArr, newArr []int) ([]int, []int) {
+	sort.Ints(oldArr)
+	sort.Ints(newArr)
 	var sortedOld, sortedNew, crossSet, newSet []int
 	crossSetMap, oldItemSet := map[int]bool{}, map[int]bool{}
 	for _, item := range oldArr {
@@ -46,14 +51,13 @@ func sortInput(oldArr, newArr []int) ([]int, []int) {
 	return sortedOld, sortedNew
 }
 
-
 func rebalance(oldShards [NShards]int, oldGrps, newGrps []int) ([NShards]int, int) {
 	oldGrps, newGrps = sortInput(oldGrps, newGrps)
 	movedShards := 0
 	// It's wired but test cases will reduce the num of groups to zero
 	if len(newGrps) == 0 {
 		var result [NShards]int
-		for i:=0;i<NShards;i++ {
+		for i := 0; i < NShards; i++ {
 			if oldShards[i] != 0 {
 				movedShards++
 			}
@@ -123,11 +127,10 @@ func rebalance(oldShards [NShards]int, oldGrps, newGrps []int) ([NShards]int, in
 	return newShards, movedShards
 }
 
-
 func SortTestCases() {
-	fmt.Println(sortInput([]int{3,4,6,7,5}, []int{7,4,2,6}))
-	fmt.Println(sortInput([]int{1,2,3,4}, []int{1,2,4,3}))
-	fmt.Println(sortInput([]int{1,2,3,4}, []int{2,4,3}))
+	fmt.Println(sortInput([]int{3, 4, 6, 7, 5}, []int{7, 4, 2, 6}))
+	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{1, 2, 4, 3}))
+	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{2, 4, 3}))
 }
 
 func RebalanceTestCases() {

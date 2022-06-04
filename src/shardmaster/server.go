@@ -219,6 +219,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 func (sm *ShardMaster) Kill() {
 	sm.rf.Kill()
 	// Your code here, if desired.
+	atomic.StoreInt32(&sm.dead, 1)
 }
 
 func (sm *ShardMaster) killed() bool {

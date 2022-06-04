@@ -29,10 +29,10 @@ type Config struct {
 }
 
 const (
-	OK = "OK"
+	OK             = "OK"
 	ErrWrongLeader = "wrong leader"
-	ErrType = "log type is not Op"
-	ErrUnknown = "unknown error"
+	ErrType        = "log type is not Op"
+	ErrUnknown     = "unknown error"
 )
 
 type Err string

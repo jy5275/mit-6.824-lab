@@ -608,7 +608,7 @@ func (kv *ShardKV) AppendLogFromKVServer(op *Op) (ret bool) {
 	return ret
 }
 
-func (kv *ShardKV) AppendTwoLogs(newConfig shardmaster.Config, newLeader bool) {
+func (kv *ShardKV) AppendTwoLogs(newConfig *shardmaster.Config, newLeader bool) {
 	kv.mu.Lock()
 	if newConfig.Num < 1 || (newConfig.Num == kv.workingConfig.Num && kv.configOK) {
 		kv.mu.Unlock()
@@ -719,7 +719,7 @@ func (kv *ShardKV) AppendTwoLogs(newConfig shardmaster.Config, newLeader bool) {
 		OpType:    STOPOLD,
 		CliID:     kv.cliID,
 		Seq:       kv.seq,
-		NewConfig: newConfig,
+		NewConfig: *newConfig,
 	}
 	if logSucceed := kv.AppendLogFromKVServer(&op1); !logSucceed {
 		// May fail due to lose leadership...
@@ -773,8 +773,11 @@ func (kv *ShardKV) PollConfig() {
 			nextConfigID = -1
 		}
 		newConfig := kv.mck.Query(nextConfigID)
+
+		kv.mu.Lock()
 		DPrintf(fmt.Sprintf("[KV] %v-%v has pulled a newConfig=%+v, configOK=%v, workingConfig=%+v",
 			kv.gid, kv.me, newConfig, kv.configOK, kv.workingConfig))
+		kv.mu.Unlock()
 
 		// after failure recovery out KV might have workingConf.Num < cacheConf.Num,
 		// in this case we should still send FetchShards RPC.
@@ -784,7 +787,7 @@ func (kv *ShardKV) PollConfig() {
 		}
 
 		// Get all KVs from other groups
-		kv.AppendTwoLogs(newConfig, ImNewLeader)
+		kv.AppendTwoLogs(&newConfig, ImNewLeader)
 	}
 }
 
