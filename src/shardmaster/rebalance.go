@@ -1,12 +1,9 @@
-// Just for testing golang features
-
-package main
+package shardmaster
 
 import (
 	"fmt"
+	"sort"
 )
-
-const NShards = 10
 
 // 10 / 4 --> [3, 3, 2, 2]
 func integerDivide(divident, divisor int) []int {
@@ -25,6 +22,8 @@ func integerDivide(divident, divisor int) []int {
 }
 
 func sortInput(oldArr, newArr []int) ([]int, []int) {
+	sort.Ints(oldArr)
+	sort.Ints(newArr)
 	var sortedOld, sortedNew, crossSet, newSet []int
 	crossSetMap, oldItemSet := map[int]bool{}, map[int]bool{}
 	for _, item := range oldArr {
@@ -52,11 +51,24 @@ func sortInput(oldArr, newArr []int) ([]int, []int) {
 	return sortedOld, sortedNew
 }
 
-func rebalance(oldShards []int, oldGrps, newGrps []int) ([]int, int) {
+func rebalance(oldShards [NShards]int, oldGrps, newGrps []int) ([NShards]int, int) {
 	oldGrps, newGrps = sortInput(oldGrps, newGrps)
 	movedShards := 0
+	// It's wired but test cases will reduce the num of groups to zero
+	if len(newGrps) == 0 {
+		var result [NShards]int
+		for i := 0; i < NShards; i++ {
+			if oldShards[i] != 0 {
+				movedShards++
+			}
+			result[i] = 0
+		}
+		return result, movedShards
+	}
+
 	moveInToken := []int{}
-	newShardsIdx, newShards := make([]int, len(oldShards)), make([]int, len(oldShards))
+	newShardsIdx := make([]int, len(oldShards))
+	var newShards [NShards]int
 
 	bucketNum := len(oldGrps) // 5
 	if len(newGrps) > len(oldGrps) {
@@ -119,71 +131,23 @@ func SortTestCases() {
 	fmt.Println(sortInput([]int{3, 4, 6, 7, 5}, []int{7, 4, 2, 6}))
 	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{1, 2, 4, 3}))
 	fmt.Println(sortInput([]int{1, 2, 3, 4}, []int{2, 4, 3}))
-	fmt.Println(sortInput([]int{0, 1}, []int{0, 2, 1}))
-	fmt.Println(sortInput([]int{0, 1}, []int{2, 1, 0}))
 }
 
 func RebalanceTestCases() {
 	fmt.Println(rebalance(
-		[]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		[NShards]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		[]int{0},
 		[]int{10, 11, 12, 33, 44}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 10, 11, 12, 10},
+		[NShards]int{10, 11, 12, 10, 11, 12, 10, 11, 12, 10},
 		[]int{10, 11, 12},
 		[]int{10, 11, 12, 33, 44}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
+		[NShards]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
 		[]int{10, 11, 12, 33, 44},
 		[]int{10, 11, 12}))
 	fmt.Println(rebalance(
-		[]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
+		[NShards]int{10, 11, 12, 10, 11, 12, 33, 44, 44, 33},
 		[]int{10, 11, 12, 33, 44},
 		[]int{10, 11, 12, 44, 33}))
-	fmt.Println(rebalance(
-		[]int{1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-		[]int{0, 1},
-		[]int{0, 2, 1}))
-	fmt.Println(rebalance(
-		[]int{1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-		[]int{1, 0},
-		[]int{2, 1, 0}))
-}
-
-type Config struct {
-	Num    int              // config number
-	Shards [10]int          // shard -> gid
-	Groups map[int][]string // gid -> servers[] TODO:can copy directly
-}
-
-func copyConfig(src *Config, dest *Config) {
-	dest.Num = src.Num
-	dest.Shards = src.Shards
-}
-
-func CopyConfig() {
-	c1 := Config{
-		Num:    0,
-		Shards: [10]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-		Groups: map[int][]string{
-			15: {"in", "id"},
-			30: {"cn", "my"},
-			45: {"sg", "hk"},
-		},
-	}
-
-	c2 := Config{
-		Num: 1,
-	}
-
-	copyConfig(&c1, &c2)
-	c2.Shards[3] = 43242
-
-	c1.Groups = make(map[int][]string)
-	fmt.Println(c1.Shards, c2.Shards)
-}
-
-func main() {
-	//SortTestCases()
-	RebalanceTestCases()
 }

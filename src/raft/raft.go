@@ -100,6 +100,15 @@ type Raft struct {
 	lastIncludedTerm int
 	applyCh          chan ApplyMsg
 	Heartbeats       []chan chan bool
+	debugSwitch      bool // chuan lian kai guan
+	gid              int
+}
+
+func (rf *Raft) DPrintf(format string, a ...interface{}) {
+	if rf.debugSwitch {
+		a = append([]interface{}{rf.gid, rf.me}, a...)
+		DPrintf("[%v-%v]"+format, a...)
+	}
 }
 
 // Invoke with lock!
@@ -236,12 +245,19 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	}
 
 	localIdx := rf.GetLocalIdx(index)
-	if localIdx < 0 {
-		panic(fmt.Sprintf("[Snap] %v(%v) Raft.DoSnapshot(%v, %v, bytes), localIdx=%v", rf.me, rf.currentTerm, index, sizeLimit, localIdx))
+	if localIdx < -1 {
+		panic(fmt.Sprintf("[Snap] %v(%v) Raft.DoSnapshot(%v, %v, bytes), log=%+v, "+
+			"rf.lastIncludedIdx=%v, localIdx=%v", rf.me, rf.currentTerm, index,
+			sizeLimit, rf.log, rf.lastIncludedIdx, localIdx))
 	}
-	rf.lastIncludedIdx = rf.log[localIdx].Index
-	rf.lastIncludedTerm = rf.log[localIdx].Term
-	rf.log = rf.log[localIdx+1:]
+
+	if localIdx == -1 {
+		// No log: do nothing...
+	} else {
+		rf.lastIncludedIdx = rf.log[localIdx].Index
+		rf.lastIncludedTerm = rf.log[localIdx].Term
+		rf.log = rf.log[localIdx+1:]
+	}
 
 	w0 := new(bytes.Buffer)
 	e0 := labgob.NewEncoder(w0)
@@ -249,7 +265,7 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	e0.Encode(rf.votedFor)
 	e0.Encode(rf.log)
 	state := w0.Bytes()
-	DPrintf("[Snap] %v(%v) ready to trim, <lastIncIdx=%v, lastIncTerm=%v>, size:%v, log=%v", rf.me,
+	rf.DPrintf("[Snap] %v(%v) ready to trim, <lastIncIdx=%v, lastIncTerm=%v>, size:%v, log=%v", rf.me,
 		rf.currentTerm, rf.lastIncludedIdx, rf.lastIncludedTerm, rf.persister.RaftStateSize(), rf.PrintLogs())
 
 	rf.persister.SaveStateAndSnapshot(state, raw)
@@ -284,7 +300,7 @@ func (rf *Raft) readPersist(data []byte) {
 	} else {
 		rf.log = logD
 	}
-	DPrintf("[PER] %v(%v) recovers with log %v", rf.me, rf.currentTerm, rf.PrintLogs())
+	rf.DPrintf("[PER] %v(%v) recovers with log %v", rf.me, rf.currentTerm, rf.PrintLogs())
 }
 
 // Return value: data, nextSeq, lastIncludedIdx, lastIncludedTerm
@@ -296,7 +312,7 @@ func (rf *Raft) ReadSnapshot() []byte {
 func (rf *Raft) SetSnapshotParam(lastIncludedIdx, lastIncludedTerm int) {
 	rf.lastIncludedIdx, rf.lastIncludedTerm = lastIncludedIdx, lastIncludedTerm
 	rf.lastApplied = rf.lastIncludedIdx
-	DPrintf("[PER] %v(%v) read snapshot",
+	rf.DPrintf("[PER] %v(%v) read snapshot",
 		rf.me, rf.currentTerm)
 }
 
@@ -341,7 +357,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		// Outdated election, ignore it
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to outdated term\n",
+		rf.DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to outdated term\n",
 			rf.me, rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
@@ -357,7 +373,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if rf.votedFor != -1 {
 		reply.VoteGranted = false
 		reply.Term = rf.currentTerm
-		DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to voted\n", rf.me,
+		rf.DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT due to voted\n", rf.me,
 			rf.currentTerm, args.CandidateId, args.Term)
 		return
 	}
@@ -369,7 +385,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			// Not up-to-date
 			reply.VoteGranted = false
 			reply.Term = rf.currentTerm
-			DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT, recv <t,id>=<%v,%v>, my log: %v\n",
+			rf.DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v(%v), NOT, recv <t,id>=<%v,%v>, my log: %v\n",
 				rf.me, rf.currentTerm, args.CandidateId, args.Term,
 				args.LastLogTerm, args.LastLogIndex, rf.PrintLogs())
 			return
@@ -380,7 +396,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
 	reply.VoteGranted = true
 	reply.Term = rf.currentTerm
-	DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v, granted.\n",
+	rf.DPrintf("[ELECTION] Ins %v(%v) recv reqVote from %v, granted.\n",
 		rf.me, rf.currentTerm, args.CandidateId)
 }
 
@@ -414,14 +430,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 //
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	DPrintf("[RV-->] Ins %v(%v) send reqVote to %v\n", rf.me, args.Term, server)
+	rf.DPrintf("[RV-->] Ins %v(%v) send reqVote to %v\n", rf.me, args.Term, server)
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	rf.cond.Broadcast()
 	if args.Term < rf.currentTerm {
-		DPrintf("[RV===>]A delayed sendRV package from can %v(%v)\n",
+		rf.DPrintf("[RV===>]A delayed sendRV package from can %v(%v)\n",
 			rf.me, args.Term)
 		return ok
 	}
@@ -518,7 +534,7 @@ func (rf *Raft) LeaderRead() (bool, int) {
 			if result == true {
 				followCnt++
 			}
-			DPrintf("[DEBUG] Get result: %v, cur recv=%v, follow=%v\n", result, recvCnt, followCnt)
+			rf.DPrintf("[DEBUG] Get result: %v, cur recv=%v, follow=%v\n", result, recvCnt, followCnt)
 		default:
 			rf.mu.Lock()
 			if rf.state != LEADER { // TODO: state use atomic var
@@ -629,7 +645,7 @@ func (rf *Raft) ElectionRunner() {
 		// To avoid permanent sleep, ensure holding the lock before lauching
 		//  broadcast routine(to prevent the latter from broadcast before wait)
 		rf.cond.Wait()
-		DPrintf("[RV] Can %v(%v) has collected %v grants\n", rf.me, thisTerm, rf.forNum)
+		rf.DPrintf("[RV] Can %v(%v) has collected %v grants\n", rf.me, thisTerm, rf.forNum)
 	}
 	if rf.state != CANDIDATE || rf.currentTerm != thisTerm {
 		// Reduce to follower or another election has been launched!
@@ -638,7 +654,7 @@ func (rf *Raft) ElectionRunner() {
 
 	if rf.forNum > (len(rf.peers))/2 {
 		// Win the election
-		DPrintf("[ELECTION] Ins %v won election(%v) with %v grants and logs %v\n",
+		rf.DPrintf("[ELECTION] Ins %v won election(%v) with %v grants and logs %v\n",
 			rf.me, thisTerm, rf.forNum, rf.PrintLogs())
 		rf.state = LEADER
 		// rf.electionTimer.Stop()
@@ -661,7 +677,7 @@ func (rf *Raft) TimeoutWatcher() {
 		<-rf.electionTimer.C
 		rf.mu.Lock()
 		if rf.state != LEADER {
-			DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
+			rf.DPrintf("[ELECTION] Ins %v timeout\n", rf.me)
 			go rf.ElectionRunner()
 		}
 		rf.electionTimer.Reset(RandGenerator(LOWER_BOUND, UPPER_BOUND))
@@ -677,13 +693,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.mu.Unlock()
 	}()
 
-	DPrintf("[->AppEnt] %v(%v) recv AppEnt: %v, curLogLen=%v, processing...\n",
+	rf.DPrintf("[->AppEnt] %v(%v) recv AppEnt: %v, curLogLen=%v, processing...\n",
 		rf.me, rf.currentTerm, args, len(rf.log))
 	if args.Term < rf.currentTerm {
 		reply.Success = false
 		reply.Term = rf.currentTerm
 		reply.Reason = OUTDATED_TERM
-		DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to outdated term\n",
+		rf.DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to outdated term\n",
 			rf.me, rf.currentTerm, args.LeaderId, args.Term)
 		return
 	}
@@ -721,7 +737,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				reply.ConflictIdx = rf.GetLastLogIdx() + 1
 			}
 			reply.Reason = LOG_INCONSISTENCY
-			DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons, conflictIdx=%v, cmtIdx=%v, my log=%v\n",
+			rf.DPrintf("[->AppEnt] %v(%v) decline AppEnt from %v(%v) due to incons, conflictIdx=%v, cmtIdx=%v, my log=%v\n",
 				rf.me, rf.currentTerm, args.LeaderId, args.Term, reply.ConflictIdx, rf.commitIndex, rf.PrintLogs())
 			return
 		}
@@ -748,7 +764,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		// Ignore them
 	} else if args.Entries[i].Term != rf.GetLogTerm(myPtr) {
 		// 3. confliction
-		DPrintf("[AppEnt] %v(%v) conflict: id,t=<%v,%v> covered by <%v,%v> from %v(%v)\n",
+		rf.DPrintf("[AppEnt] %v(%v) conflict: id,t=<%v,%v> covered by <%v,%v> from %v(%v)\n",
 			rf.me, rf.currentTerm, myPtr, rf.GetLogTerm(myPtr),
 			myPtr, args.Entries[i].Term, args.LeaderId, args.Term)
 		localIdx := rf.GetLocalIdx(myPtr)
@@ -769,7 +785,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Success = true
 	reply.Term = rf.currentTerm
 
-	DPrintf("[->AppEnt] %v(%v) reply ok to AppEnt recv from %v(%v): %v with cmtIdx=%v and log=%v\n",
+	rf.DPrintf("[->AppEnt] %v(%v) reply ok to AppEnt recv from %v(%v): %v with cmtIdx=%v and log=%v\n",
 		rf.me, rf.currentTerm, args.LeaderId, args.Term, reply, rf.commitIndex, rf.PrintLogs())
 }
 
@@ -788,7 +804,7 @@ func (rf *Raft) replicatedByMajority(idx int) (bool, int) {
 
 // Leader only
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply, c chan bool) bool {
-	DPrintf("[AppEnt-->] %v(%v)->%v with args %v; nextIdx=%v\n",
+	rf.DPrintf("[AppEnt-->] %v(%v)->%v with args %v; nextIdx=%v\n",
 		rf.me, args.Term, server, args, rf.nextIndex)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
@@ -796,7 +812,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	// defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
 		// Do nothing
-		DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader %v(%v)\n",
+		rf.DPrintf("[AppEnt===>]A delayed sendAppendEntries package from leader %v(%v)\n",
 			rf.me, args.Term)
 		rf.mu.Unlock()
 		if c != nil {
@@ -812,6 +828,9 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		rf.state = FOLLOWER
 	}
 
+	rf.DPrintf("[AppEnt===>] %v(%v)->%v receives reply %v; cmtIdx=%v, nextIdx=%v, matchIdx=%v\n",
+		rf.me, args.Term, server, reply, rf.commitIndex, rf.nextIndex, rf.matchIndex)
+
 	if reply.Success {
 		lastIdx := len(args.Entries) + args.PrevLogIndex
 		rf.matchIndex[server] = args.PrevLogIndex + len(args.Entries)
@@ -821,10 +840,15 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			if rf.GetLogTerm(i) != rf.currentTerm {
 				continue
 			}
-			if ok, num := rf.replicatedByMajority(i); ok {
+
+			ok, num := rf.replicatedByMajority(i)
+			rf.DPrintf("[AppEnt===>] check for update matchIdx, try to commit log %v, "+
+				"commit count=%v\n", i, num)
+
+			if ok {
 				rf.commitIndex = i
 				rf.persist()
-				DPrintf("[AppEnt===>] %v(%v) commits log %v with %v replicas\n", rf.me,
+				rf.DPrintf("[AppEnt===>] %v(%v) commits log %v with %v replicas\n", rf.me,
 					args.Term, i, num)
 			}
 		}
@@ -833,7 +857,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			c <- true
 		}
 	} else if reply.Reason == LOG_INCONSISTENCY {
-		DPrintf("[AppEnt===>] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, reply.ConflictIdx)
+		rf.DPrintf("[AppEnt===>] %v(%v) is inconsistent with %v in prev log %v\n", server, rf.currentTerm, rf.me, reply.ConflictIdx)
 		rf.nextIndex[server] = reply.ConflictIdx
 		if rf.nextIndex[server] <= 0 {
 			panic("Error: nextIndex is zero")
@@ -844,14 +868,14 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		}
 		rf.Heartbeats[server] <- nil
 	} else if reply.Reason == OUTDATED_TERM {
-		DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
+		rf.DPrintf("[AppEnt===>] %v(%v)'s was declined by %v(%v) due to outdated term\n",
 			rf.me, args.Term, server, reply.Term)
 		rf.mu.Unlock()
 		if c != nil {
 			c <- false
 		}
 	} else {
-		DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
+		rf.DPrintf("[ERR] Unknown decline reason of sendAppEnt %v(%v)->%v(%v): %v\n",
 			rf.me, args.Term, server, reply.Term, reply.Reason)
 		rf.mu.Unlock()
 		if c != nil {
@@ -864,7 +888,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
 	rf.mu.Lock()
 
-	DPrintf("[->Snap] %v(%v) recv InSnap from %v(%v), my log=%v\n",
+	rf.DPrintf("[->Snap] %v(%v) recv InSnap from %v(%v), my log=%v\n",
 		rf.me, rf.currentTerm, args.LeaderId, args.Term, rf.PrintLogs())
 	reply.Term = rf.currentTerm
 	if args.Term < rf.currentTerm {
@@ -913,7 +937,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	}
 
 	// Log missing or conflict at LastIncIdx
-	DPrintf("[->Snap] %v(%v) is incons with snap lastIncIdx=%v, lastIncT=%v, discard all logs\n",
+	rf.DPrintf("[->Snap] %v(%v) is incons with snap lastIncIdx=%v, lastIncT=%v, discard all logs\n",
 		rf.me, rf.currentTerm, args.LastIncludedIdx, args.LastIncludedTerm)
 
 	// 7. Discard the entire log
@@ -944,7 +968,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 
 func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 	reply *InstallSnapshotReply, c chan bool) bool {
-	DPrintf("[InSnap-->] %v(%v)->%v with args %v\n", rf.me,
+	rf.DPrintf("[InSnap-->] %v(%v)->%v with args %v\n", rf.me,
 		rf.currentTerm, server, args)
 	ok := rf.peers[server].Call("Raft.InstallSnapshot", args, reply)
 
@@ -958,7 +982,7 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 	}
 	if args.Term < rf.currentTerm {
 		// Delayed network. Do nothing
-		DPrintf("[InSnap===>] A delayed sendInstallSnapshot package from leader %v(%v)\n",
+		rf.DPrintf("[InSnap===>] A delayed sendInstallSnapshot package from leader %v(%v)\n",
 			rf.me, args.Term)
 		if c != nil {
 			c <- false
@@ -979,7 +1003,7 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs,
 
 	rf.matchIndex[server] = args.LastIncludedIdx
 	rf.nextIndex[server] = rf.matchIndex[server] + 1
-	DPrintf("[InSnap===>] %v(%v) send InSnap to %v(%v) ok, matchIdx=%v, nextIdx=%v\n",
+	rf.DPrintf("[InSnap===>] %v(%v) send InSnap to %v(%v) ok, matchIdx=%v, nextIdx=%v\n",
 		rf.me, rf.currentTerm, server, reply.Term, rf.matchIndex, rf.nextIndex)
 	if c != nil {
 		c <- true
@@ -1011,7 +1035,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}()
 
 	if rf.state != LEADER {
-		//DPrintf("[SYS] %v(%v) recv a cmd, but rejected due to not leader\n", rf.me, rf.currentTerm)
+		//rf.DPrintf("[SYS] %v(%v) recv a cmd, but rejected due to not leader\n", rf.me, rf.currentTerm)
 		return -1, rf.currentTerm, false
 	}
 
@@ -1030,7 +1054,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	newLogIndex := newLogEntryPtr.Index
 	rf.matchIndex[rf.me] = newLogEntryPtr.Index
 
-	DPrintf("[SYS] New cmd %v(%v) recv at idx=%v, val=%v, %v\n", rf.me,
+	rf.DPrintf("[SYS] New cmd %v(%v) recv at idx=%v, val=%+v, %v\n", rf.me,
 		rf.currentTerm, newLogIndex, newLogEntryPtr.Content, rf.PrintLogs())
 
 	return newLogIndex, rf.currentTerm, true
@@ -1099,7 +1123,7 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 				CommandIndex: newIdx,
 				CommandTerm:  rf.GetLogTerm(newIdx),
 			}
-			DPrintf("[SYS] %v(%v) applies log %v ok, val=%v, lastApplied=%v, cmtIdx=%v\n",
+			rf.DPrintf("[SYS] %v(%v) applies log %v ok, val=%v, lastApplied=%v, cmtIdx=%v\n",
 				rf.me, rf.currentTerm, newIdx, msg.Command, rf.lastApplied, rf.commitIndex)
 			rf.mu.Unlock()
 			applyCh <- msg
@@ -1126,6 +1150,11 @@ func (rf *Raft) Applier(applyCh chan ApplyMsg) {
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
+	return MakeWithDebug(peers, me, persister, applyCh, false, -1)
+}
+
+func MakeWithDebug(peers []*labrpc.ClientEnd, me int,
+	persister *Persister, applyCh chan ApplyMsg, debug bool, gid int) *Raft {
 	DPrintf("[SYS] Start ins %v\n", me)
 	rf := &Raft{
 		peers:            peers,
@@ -1143,6 +1172,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		lastIncludedTerm: -1,
 		applyCh:          applyCh,
 		Heartbeats:       make([]chan chan bool, len(peers)),
+		debugSwitch:      debug,
+		gid:              gid,
 	}
 	for i := range rf.Heartbeats {
 		rf.Heartbeats[i] = make(chan chan bool)
