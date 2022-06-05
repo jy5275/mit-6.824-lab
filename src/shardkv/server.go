@@ -327,7 +327,7 @@ func (kv *ShardKV) FetchShards(args *FetchShardsArgs, reply *FetchShardsReply) {
 		return
 	}
 
-	if args.ConfNum > kv.workingConfig.Num {
+	if args.ConfNum > kv.workingConfig.Num || (args.ConfNum == kv.workingConfig.Num && !kv.configOK) {
 		reply.Err = ErrNotFetched
 		DPrintf("[KV] %v-%v rej FetchShard req %+v due to config %v is not fetched here, "+
 			"workingConfig.Num is %v\n", kv.gid, kv.me, args, args.ConfNum, kv.workingConfig.Num)

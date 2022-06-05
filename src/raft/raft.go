@@ -245,12 +245,19 @@ func (rf *Raft) DoSnapshot(index, sizeLimit int, raw []byte) {
 	}
 
 	localIdx := rf.GetLocalIdx(index)
-	if localIdx < 0 {
-		panic(fmt.Sprintf("[Snap] %v(%v) Raft.DoSnapshot(%v, %v, bytes), localIdx=%v", rf.me, rf.currentTerm, index, sizeLimit, localIdx))
+	if localIdx < -1 {
+		panic(fmt.Sprintf("[Snap] %v(%v) Raft.DoSnapshot(%v, %v, bytes), log=%+v, "+
+			"rf.lastIncludedIdx=%v, localIdx=%v", rf.me, rf.currentTerm, index,
+			sizeLimit, rf.log, rf.lastIncludedIdx, localIdx))
 	}
-	rf.lastIncludedIdx = rf.log[localIdx].Index
-	rf.lastIncludedTerm = rf.log[localIdx].Term
-	rf.log = rf.log[localIdx+1:]
+
+	if localIdx == -1 {
+		// No log: do nothing...
+	} else {
+		rf.lastIncludedIdx = rf.log[localIdx].Index
+		rf.lastIncludedTerm = rf.log[localIdx].Term
+		rf.log = rf.log[localIdx+1:]
+	}
 
 	w0 := new(bytes.Buffer)
 	e0 := labgob.NewEncoder(w0)
