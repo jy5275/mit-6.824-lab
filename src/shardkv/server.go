@@ -1,19 +1,18 @@
 package shardkv
 
-// import "../shardmaster"
 import (
 	"../kvraft"
+	"../labgob"
 	"../labrpc"
+	"../raft"
 	"../shardmaster"
 	"bytes"
 	"fmt"
 	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 )
-import "../raft"
-import "sync"
-import "../labgob"
 
 const (
 	Debug = 0
@@ -44,23 +43,6 @@ type Op struct {
 	CliID    int64
 	Seq      int
 
-	// Two logs for each re-sharding: StopOldShards --> ReShard
-	// Send FetchShards RPC in phase2
-	// Phase1:
-	//  1. Start StopOldShards log, wait for apply
-	//  2. In applier, remove old shards out of serving set
-	// Phase2:
-	//  3. Leader FetchShards from other groups (say, G2)
-	//     Retry on failure (possibly at this time G2 hasn't known the newest config from shardmaster)
-	//     Followers don't send FetchShards RPC. Instead, they just wait for the leader to send new shards
-	//     in RESHARD log.
-	//  4. Start ReShard log, wait for apply
-	//  5. In applier, add new shards into serving set and KVs
-	//
-	// FetchShards:
-	//   1. If args.Num < localNum: discard
-	//   2. If STOPOLD log has already been applied at Num: reply with data and return
-	//   3. Reject and client retries
 	MovedKVs  map[string]string // ReShard
 	NewConfig shardmaster.Config
 }
@@ -249,16 +231,9 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 	// Decline other shards
 	keyShard := key2shard(args.Key)
-	//if !kv.IsResponsibleForShard(keyShard) {
-	//	reply.Err = ErrWrongGroup
-	//	DPrintf("[KV] %v-%v cannot serve shard-%v, args=%v\n",
-	//		kv.gid, kv.me, keyShard, args)
-	//	return
-	//}
 	DPrintf("[KV] %v-%v receives PA cmd %+v, shard=%v\n", kv.gid, kv.me, args, keyShard)
 
 	idx, initTerm, isLeader := kv.rf.Start(op)
-
 	if !isLeader {
 		reply.Err = ErrWrongLeader
 		DPrintf("[KV] %v-%v is not leader\n", kv.gid, kv.me)
